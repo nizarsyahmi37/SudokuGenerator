@@ -1,0 +1,25 @@
+{
+    "name": "sudoku-generator",
+    "version": "1.0.0",
+    "description": "Sudoku generator",
+    "main": "index.js",
+    "repository": "https://github.com/nizarsyahmi37/SudokuGenerator",
+    "author": "Nizar Syahmi bin Nazlan <38692430+nizarsyahmi37@users.noreply.github.com>",
+    "license": "MIT",
+    "dependencies": {
+        "next": "^13.3.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint"
+    },
+    "devDependencies": {
+        "@types/node": "18.15.11",
+        "@types/react": "18.0.35",
+        "typescript": "5.0.4"
+    }
+}
