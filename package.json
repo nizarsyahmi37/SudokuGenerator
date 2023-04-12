@@ -2,9 +2,9 @@
     "name": "sudoku-generator",
     "version": "1.0.0",
     "description": "Sudoku generator",
-    "main": "index.js",
+    "main": "index.tsx",
     "repository": "https://github.com/nizarsyahmi37/SudokuGenerator",
-    "author": "Nizar Syahmi bin Nazlan <38692430+nizarsyahmi37@users.noreply.github.com>",
+    "author": "Nizar Syahmi bin Nazlan <nizar@nizarsyahmi37.com>",
     "license": "MIT",
     "dependencies": {
         "next": "^13.3.0",
