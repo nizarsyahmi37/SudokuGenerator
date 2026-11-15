@@ -38,7 +38,7 @@ export default function Game() {
     const [exporting, setExporting] = useState(false);
     const [plainExport, setPlainExport] = useState(false);
 
-    const { fx: fxc, mode, theme } = useTheme();
+    const { fx: fxc, mode, theme, effects } = useTheme();
     const fxcRef = useRef(fxc);
     useEffect(() => { fxcRef.current = fxc; }, [fxc]);
     const fx = useRef<FxHandle>(null);
@@ -259,7 +259,8 @@ export default function Game() {
 
     return (
         <div className="app">
-            <FxLayer ref={fx} />
+            {/* The particle layer only exists while effects are on, so "off" really means no animation and no extra code. */}
+            {effects && <FxLayer ref={fx} />}
             <header className="hero panel">
                 <h1>SUDOKU</h1>
                 <div role="tablist" aria-label="Sections" className="tabs" onKeyDown={onTabKey}>
