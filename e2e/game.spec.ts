@@ -113,3 +113,28 @@ test('level choices describe the technique they need', async ({ page }) => {
     await expect(page.getByRole('button', { name: /^Level 1, Beginner, Naked singles only/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Level 7, Hard, XY-Wing/ })).toBeVisible();
 });
+
+test('pausing stops the clock, hides the board and resumes where it left off', async ({ page }) => {
+    const pause = page.getByRole('button', { name: 'Pause' });
+    await expect(pause).toBeDisabled(); // nothing to pause before the first touch
+    await cells(page).first().click();
+    await expect(timer(page)).not.toHaveText('00:00', { timeout: 5000 });
+    await pause.click();
+    await expect(page.getByRole('region', { name: 'Game paused' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Game paused' }).getByRole('button', { name: 'Resume' })).toBeFocused();
+    const frozen = await timer(page).textContent();
+    await page.waitForTimeout(2200);
+    await expect(timer(page)).toHaveText(frozen!);
+    await page.getByRole('region', { name: 'Game paused' }).getByRole('button', { name: 'Resume' }).click();
+    await expect(page.getByRole('region', { name: 'Game paused' })).toHaveCount(0);
+    await expect(timer(page)).not.toHaveText(frozen!, { timeout: 5000 });
+});
+
+test('a hidden tab pauses the game', async ({ page }) => {
+    await cells(page).first().click();
+    await page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect(page.getByRole('region', { name: 'Game paused' })).toBeVisible();
+});

@@ -75,15 +75,25 @@ export default function Game() {
 
     // ---- keep the clock running and the save up to date ----
     useEffect(() => {
-        if (!game?.started || game.won || game.revealed) return;
+        if (!game?.started || game.paused || game.won || game.revealed) return;
         const id = setInterval(() => dispatch({ type: 'tick' }), 1000);
         return () => clearInterval(id);
-    }, [game?.started, game?.won, game?.revealed, gameId]);
+    }, [game?.started, game?.paused, game?.won, game?.revealed, gameId]);
+
+    // A hidden tab is paused for the player, because browsers slow timers down in the background and the time would be wrong.
+    useEffect(() => {
+        const onHide = () => { if (document.visibilityState === 'hidden') dispatch({ type: 'pause' }); };
+        document.addEventListener('visibilitychange', onHide);
+        return () => document.removeEventListener('visibilitychange', onHide);
+    }, []);
 
     useEffect(() => {
         if (!game) return;
         try { localStorage.setItem(SAVE_KEY, serialize(game)); } catch { /* storage unavailable */ }
     }, [game]);
+
+    const resumeRef = useRef<HTMLButtonElement>(null);
+    useEffect(() => { if (game?.paused && document.visibilityState === 'visible') resumeRef.current?.focus(); }, [game?.paused]);
 
     const fxAt = useCallback((cells: number[], color: number, count: number) => {
         for (const i of cells) {
@@ -171,7 +181,10 @@ export default function Game() {
         if (/^[1-9]$/.test(e.key)) { e.preventDefault(); place(Number(e.key)); }
         else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') { e.preventDefault(); erase(); }
         else if (e.key.toLowerCase() === 'n') { e.preventDefault(); setNotesMode((v) => !v); }
+        else if (e.key.toLowerCase() === 'p') { e.preventDefault(); act({ type: 'pause' }); }
     };
+    const resume = () => { act({ type: 'resume' }); requestAnimationFrame(() => cellRefs.current[selected ?? 0]?.focus()); };
+    const canPause = !!game && game.started && !game.won && !game.revealed;
 
     const check = () => {
         if (!game) return;
@@ -281,13 +294,15 @@ export default function Game() {
                         <h2 id={`${uid}-h-board`} className="sr-only">Puzzle board</h2>
                         <div className="statbar">
                             <span className="lvl-pill" style={lcStyle((game?.level ?? 5) as Level)}>Level {game?.level ?? 5} · {LEVEL_NAMES[(game?.level ?? 5) as Level]}</span>
-                            <span className="stat" role="timer" aria-label={`Elapsed time ${clock}`}>{clock}</span>
+                            <span className="stat" role="timer" aria-label={`Elapsed time ${clock}${game?.paused ? ', paused' : ''}`}>{clock}</span>
+                            <button type="button" className="pause-btn" aria-pressed={!!game?.paused} disabled={!canPause && !game?.paused} onClick={() => act({ type: game?.paused ? 'resume' : 'pause' })}>{game?.paused ? 'Resume' : 'Pause'}</button>
                             <span className="stat">{filledCount}/81</span>
                         </div>
                         <progress className="progress" max={81} value={filledCount} aria-label="Cells filled">{filledCount} of 81</progress>
                         {game && <p className="code">{game.kind === 'daily' ? 'Daily puzzle' : game.kind === 'shared' ? 'Shared puzzle' : 'Puzzle'} <b>{game.seed}</b> · {game.mistakes} mistake{game.mistakes === 1 ? '' : 's'} · {game.hintsUsed} hint{game.hintsUsed === 1 ? '' : 's'}</p>}
 
-                        <div className={`grid${game?.won ? ' won' : ''}`} role="grid" aria-label="Sudoku board. Use arrow keys to move and number keys to fill. Press N to switch pencil notes." onKeyDown={onGridKey}>
+                        <div className="grid-wrap">
+                        <div className={`grid${game?.won ? ' won' : ''}${game?.paused ? ' paused' : ''}`} inert={!!game?.paused} role="grid" aria-label="Sudoku board. Use arrow keys to move and number keys to fill. Press N to switch pencil notes." onKeyDown={onGridKey}>
                             {Array.from({ length: 9 }, (_, r) => (
                                 <div className="row" role="row" key={r}>
                                     {Array.from({ length: 9 }, (_, c) => {
@@ -315,6 +330,14 @@ export default function Game() {
                                     })}
                                 </div>
                             ))}
+                        </div>
+                        {game?.paused && (
+                            <div className="pause-cover" role="region" aria-label="Game paused">
+                                <p><strong>Paused</strong></p>
+                                <p>The clock has stopped and the board is hidden.</p>
+                                <button ref={resumeRef} type="button" className="primary" onClick={resume}>Resume</button>
+                            </div>
+                        )}
                         </div>
                         <div className={`status ${shown.kind}`} role="status" aria-live="polite">
                             {shown.kind === 'ok' && <span aria-hidden="true">✓ </span>}{shown.kind === 'err' && <span aria-hidden="true">✕ </span>}{shown.text}

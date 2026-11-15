@@ -106,3 +106,25 @@ describe('statistics', () => {
         expect(streaks(s, '2026-11-20')).toEqual({ current: 1, best: 3 });
     });
 });
+
+describe('pausing', () => {
+    it('stops the clock and ignores moves until resumed', () => {
+        let g = run(fresh(), { type: 'start' }, { type: 'tick' }, { type: 'tick' });
+        expect(g.seconds).toBe(2);
+        g = run(g, { type: 'pause' }, { type: 'tick' });
+        expect(g.paused).toBe(true);
+        expect(g.seconds).toBe(2);
+        const cell = empty(g);
+        expect(run(g, { type: 'input', cell, digit: 5, notes: false, autoClear: true }).board[cell]).toBe(0);
+        expect(run(g, { type: 'hint' }).hintsUsed).toBe(0);
+        g = run(g, { type: 'resume' }, { type: 'tick' });
+        expect(g.paused).toBe(false);
+        expect(g.seconds).toBe(3);
+    });
+
+    it('cannot pause a game that has not started and does not save the paused state', () => {
+        expect(run(fresh(), { type: 'pause' }).paused).toBe(false);
+        const g = run(fresh(), { type: 'start' }, { type: 'pause' });
+        expect(restore(serialize(g))?.paused).toBe(false);
+    });
+});

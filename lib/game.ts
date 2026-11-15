@@ -19,6 +19,8 @@ export interface Game {
     future: Snapshot[];
     seconds: number;
     started: boolean;
+    /** The clock is stopped and the board is hidden. Not saved: a restored game always continues. */
+    paused: boolean;
     revealed: boolean;
     hintsUsed: number;
     mistakes: number;
@@ -47,7 +49,7 @@ export function newGame(seed: string, level: Level, kind: Kind): Game {
     const p = generatePuzzle(level, puzzleRng(s, level, 0));
     return {
         level, seed: s, kind, puzzle: p.puzzle, solution: p.solution, grade: p.grade, board: [...p.puzzle], notes: new Array(81).fill(0),
-        past: [], future: [], seconds: 0, started: false, revealed: false, hintsUsed: 0, mistakes: 0, won: false,
+        past: [], future: [], seconds: 0, started: false, paused: false, revealed: false, hintsUsed: 0, mistakes: 0, won: false,
     };
 }
 
@@ -58,6 +60,8 @@ export type Action =
     | { type: 'undo' }
     | { type: 'redo' }
     | { type: 'start' }
+    | { type: 'pause' }
+    | { type: 'resume' }
     | { type: 'tick' }
     | { type: 'hint' }
     | { type: 'solve' };
@@ -76,15 +80,19 @@ export function reducer(g: Game | null, a: Action): Game | null {
     if (!g) return g;
     switch (a.type) {
         case 'start': return g.started ? g : { ...g, started: true };
-        case 'tick': return g.started && !g.won && !g.revealed ? { ...g, seconds: g.seconds + 1 } : g;
-        case 'hint': return { ...g, hintsUsed: g.hintsUsed + 1 };
-        case 'solve': return g.revealed ? g : commit(g, [...g.solution], new Array(81).fill(0), { revealed: true });
+        case 'pause': return g.started && !g.paused && !g.won && !g.revealed ? { ...g, paused: true } : g;
+        case 'resume': return g.paused ? { ...g, paused: false } : g;
+        case 'tick': return g.started && !g.paused && !g.won && !g.revealed ? { ...g, seconds: g.seconds + 1 } : g;
+        case 'hint': return g.paused ? g : { ...g, hintsUsed: g.hintsUsed + 1 };
+        case 'solve': return g.revealed || g.paused ? g : commit(g, [...g.solution], new Array(81).fill(0), { revealed: true });
         case 'undo': {
+            if (g.paused) return g;
             const prev = g.past[g.past.length - 1];
             if (!prev) return g;
             return { ...g, board: [...prev.board], notes: [...prev.notes], past: g.past.slice(0, -1), future: [snap(g), ...g.future], won: false };
         }
         case 'redo': {
+            if (g.paused) return g;
             const next = g.future[0];
             if (!next) return g;
             const out = { ...g, board: [...next.board], notes: [...next.notes], past: [...g.past, snap(g)], future: g.future.slice(1) };
@@ -92,13 +100,13 @@ export function reducer(g: Game | null, a: Action): Game | null {
             return out;
         }
         case 'erase': {
-            if (g.puzzle[a.cell] || (!g.board[a.cell] && !g.notes[a.cell])) return g;
+            if (g.paused || g.puzzle[a.cell] || (!g.board[a.cell] && !g.notes[a.cell])) return g;
             const board = [...g.board], notes = [...g.notes];
             board[a.cell] = 0; notes[a.cell] = 0;
             return commit(g, board, notes);
         }
         case 'input': {
-            if (g.puzzle[a.cell] || g.won || g.revealed) return g;
+            if (g.paused || g.puzzle[a.cell] || g.won || g.revealed) return g;
             const board = [...g.board], notes = [...g.notes];
             if (a.notes) {
                 if (board[a.cell]) return g; // pencil marks only go in empty cells
