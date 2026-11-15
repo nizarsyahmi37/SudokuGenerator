@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sudoku">
+  <rect width="64" height="64" rx="12" fill="#14213d"/>
+  <g stroke="#fca311" stroke-width="1.5" opacity=".55"><path d="M21.3 8v48M42.7 8v48M8 21.3h48M8 42.7h48"/></g>
+  <rect x="8" y="8" width="48" height="48" rx="3" fill="none" stroke="#fca311" stroke-width="3"/>
+  <text x="32" y="43" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="30" fill="#ffffff">9</text>
+</svg>
