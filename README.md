@@ -7,8 +7,12 @@ Play sudoku at ten difficulty levels, get hints that explain why, and turn puzzl
 ### Play
 - **Ten levels graded by technique, not clue count.** A human-style solver (naked and hidden singles, locked candidates, pairs, triples, X-Wing, XY-Wing, XYZ-Wing, Swordfish, then trial and error) scores every puzzle. Every puzzle has exactly one solution.
 - **Hints that explain why.** "Hidden single: in box 5, the digit 8 fits in only one cell, r5c6", with the cells highlighted and a button to place it. A wrong digit is pointed out instead of hinted on top of.
-- **Undo, redo and pencil notes** (Ctrl+Z, Ctrl+Y, N), with notes cleaned up automatically.
-- **Save and resume.** Your game survives a refresh. The clock starts only when you first touch the board.
+- **Undo, redo and pencil notes** (Ctrl+Z, Ctrl+Y, N), with notes cleaned up automatically, a **Fill notes** button that writes every possible digit (F), and an optional **mistake limit** (3 or 5).
+- **Pause** (P) stops the clock and hides the board; a hidden tab pauses by itself. A **keyboard shortcut list** opens with ? or from the button.
+- **Save and resume.** Your game survives a refresh. The clock starts only when you first touch the board. **Save to file** and **Open a file** move your game and statistics between devices (statistics are merged).
+- **Honest levels.** The level shown, and the one statistics count under, is the level the puzzle really graded as.
+- **Works offline** after the first visit (service worker), and installs as an app.
+- **Languages:** English, Bahasa Melayu, Español and العربية (right to left), following the browser's language. Hints, the book maker and the legal pages are in English.
 - **Daily puzzle** (the same for everyone, level set by the weekday), **statistics** (solved counts, best and average times, daily streak) and **share links** that reopen the exact puzzle.
 - **Themes.** Ten themes, each in light and dark mode (or match your device), with a Three.js backdrop and Phaser particle effects you can turn off.
 - **Export** the current board as PDF, PNG or JPG, blank, solved or both, in the current theme or plain black and white.
@@ -17,10 +21,11 @@ Play sudoku at ten difficulty levels, get hints that explain why, and turn puzzl
 - **Contents:** choose how many puzzles of each level, page size, one or two puzzles per page, theme and light or dark paper. Solutions go at the back, four to a page.
 - **Cover options:** custom subtitle, colours (text colours adjust so they stay readable), an optional PNG or JPEG picture with a text description, and the large background grid.
 - **Print-ready output:** standard print-on-demand trim sizes, bleed (outer edges for KDP, all sides for IngramSpark and Lulu), optional crop marks, paper stock, a separate cover wrap whose spine is sized from the page count, an optional white area for an ISBN barcode, and a copyright page.
-- **Ink saver:** black and white only, no fills or pictures.
+- **Live cover preview** while you edit, **optional puzzle names** and up to 20 **lined, dotted or blank notes pages**.
+- **Ink saver:** black and white only, no fills or pictures, printed in pure black ink (the K channel only, never RGB).
 - **Large print:** bigger type, one puzzle per page, two solutions per page.
 - **Repeatable:** the same seed, counts and settings always make the same book. A short **book code** (`B1.…`) captures the seed and all ten counts so a book can be rebuilt later.
-- **Multilingual titles:** Latin, Latin Extended, Vietnamese, Cyrillic, Greek, Arabic, Hebrew, Devanagari and Thai, with right-to-left text set in the right order. Other alphabets are reported by the builder.
+- **Multilingual titles:** Latin, Latin Extended, Vietnamese, Cyrillic, Greek, Arabic, Hebrew, Devanagari and Thai, with right-to-left text set in the right order. For Chinese, Japanese, Korean and other alphabets, add your own font file (it stays on your device and is embedded only if needed).
 - **Fast and safe to use:** books are built in a Web Worker (with a main-thread fallback for old browsers), with progress, cancel and a page-by-page preview before you download.
 - **Accessible PDFs:** tagged, with a title, language, bookmarks, embedded fonts and a text description of every grid.
 
@@ -87,7 +92,7 @@ The site is deployed to [Vercel](https://vercel.com). It needs no special config
 3. Deploy. These variables are baked in at build time, so **redeploy after changing any of them**.
 4. Add your domain under **Settings > Domains** and set `NEXT_PUBLIC_SITE_URL` to it.
 
-What ships with the app, with nothing to set up on Vercel: security headers including a Content-Security-Policy (which allows only this site, plus the Google domains when ads are configured), Open Graph and Twitter cards, a favicon, a web manifest, `robots.txt`, `sitemap.xml`, JSON-LD, `/ads.txt` (from the publisher id) and `/api/health`.
+What ships with the app, with nothing to set up on Vercel: security headers including a Content-Security-Policy with a per-request nonce (set in `proxy.ts`; it allows only this site, plus the Google domains when ads are configured), anonymous error reports written to the runtime log (`/api/report`), Open Graph and Twitter cards, a favicon, a web manifest, `robots.txt`, `sitemap.xml`, JSON-LD, `/ads.txt` (from the publisher id) and `/api/health`.
 
 ### Before you go live
 - Set `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_OPERATOR_NAME` and `NEXT_PUBLIC_CONTACT_EMAIL`, then read `/privacy` and `/accessibility`. They describe this app as it is; have them reviewed for your jurisdiction.
@@ -98,7 +103,10 @@ What ships with the app, with nothing to set up on Vercel: security headers incl
 
 ```
 app/              App Router: layout, page, policies, metadata files, error pages, /ads.txt, /api/health
-components/       Game, book builder, preview, theme, consent and ad components
+proxy.ts          Content-Security-Policy with a nonce for every page
+components/       Game, book builder, preview, theme, language, consent and ad components
+lib/i18n/         Interface text in each language
+public/sw.js      Service worker for offline use
 e2e/              Playwright browser tests
 lib/sudoku.ts     Generator (level-targeted, seedable) and solver
 lib/logic.ts      Human-style solver: grading and hints
@@ -122,4 +130,8 @@ The target is WCAG 2.2 AA. Text colours are generated so that they meet 4.5:1 ag
 
 ## Fonts and licences
 
-The code is MIT licensed. Inter and Source Serif 4 are used under the SIL Open Font License; their licences are in `public/fonts/`.
+The code is MIT licensed. Inter, Source Serif 4 and Noto Sans are used under the SIL Open Font License; their licences are in `public/fonts/`.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: [SECURITY.md](SECURITY.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
