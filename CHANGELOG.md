@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project are recorded here. Commits follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) in the form `type(scope): summary`, and this file follows the grouping of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The project has not been tagged yet, so everything is under Unreleased.
+All notable changes to this project are recorded here. Commits follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) in the form `type(scope): summary`, and this file follows the grouping of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Releases are tagged `vX.Y.Z`. Changes that have not been released yet go under Unreleased.
 
 ## Scopes
 
@@ -25,9 +25,60 @@ All notable changes to this project are recorded here. Commits follow [Conventio
 | `e2e` | Playwright browser tests |
 | `core` | Unit tests across modules |
 | `lint`, `ci`, `git`, `deps`, `project`, `repo` | Tooling, workflow and repository housekeeping |
+| `i18n` | Interface languages and right-to-left support |
+| `pwa` | Service worker and offline use |
+| `monitoring` | Error reporting |
+| `backup` | Saving progress to a file and opening it |
+| `contributing`, `github` | Contributor guide and issue templates |
+| `release` | Version bumps |
 | `readme`, `changelog`, `testing` | Documentation |
 
 ## [Unreleased]
+
+_Nothing yet._
+
+## [1.1.0] - 2026-11-15
+
+### Features
+
+- **game:** add a pause button and pause automatically when the tab is hidden ([`70ccb3b`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/70ccb3b71626212cc72b91a0737174dee7235d72))
+- **backup:** save progress to a JSON file and open it on another device ([`320f537`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/320f537238e99d1cf393d96ff2ed5142f1a3d12c))
+- **game:** add automatic notes, an optional mistake limit and a keyboard shortcut list ([`072c5c6`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/072c5c6f8ea4344caf4bf938730a2e4eba8665f7))
+- **game:** show the level a puzzle really graded as and report off-grade book puzzles ([`657b4a3`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/657b4a307002f87ae37f3306f05b3f3692c0e2a6))
+- **book:** never repeat a puzzle inside one book ([`e8f76ea`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/e8f76ea2032860a2a47ceedb50eae2a8ad4412f5))
+- **pwa:** work offline after the first visit with a service worker ([`48b0c12`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/48b0c12205347bebb7ab2d1e56bab7d3460c6a68))
+- **book:** print the ink saver in pure black ink instead of RGB ([`b31148d`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/b31148d845eb5dcdc623ee6db89145062d086374))
+- **book:** add optional puzzle names and notes pages ([`d7d53c7`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/d7d53c779bbdc5a0abd28b7adaab253568e970d1))
+- **book:** show a live cover preview while the book is being set up ([`df3669e`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/df3669e9c23ddbad935e7af29aace98e1eaee508))
+- **book:** set Arabic, Hebrew, Devanagari and Thai text in the PDF ([`9a7df90`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/9a7df908e98d6e3041c090726a59f38b4a986959))
+- **book:** let authors add their own font for Chinese, Japanese, Korean and other alphabets ([`01c16d4`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/01c16d4432b8754d340be983d48344b3bcbb34c1))
+- **i18n:** translate the game into Bahasa Melayu, Spanish and Arabic ([`5a16526`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/5a16526afdb9521e2f310f3e5b4ac5583311c653))
+- **monitoring:** report browser errors to the site's own log ([`2be636d`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/2be636dbdafa7c9b4681057ced911e3140678f14))
+- **security:** replace unsafe-inline scripts with a per-request nonce in the CSP ([`5363fe2`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/5363fe2772fe075fdb50eb14526bbe1c2e9a234b))
+
+### Bug fixes
+
+- **layout:** stop the board jumping when the game finishes loading ([`a916e06`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/a916e066cbd485a71a490ef345ca74ec11ea2907))
+
+### Performance
+
+- **bundle:** load Phaser, Three.js and the book maker only when they are needed ([`db9a330`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/db9a330d02f4dbd801a2b3af9f3db4b3c0fc32a2))
+
+### Continuous integration
+
+- **deps:** add Dependabot for npm packages and GitHub Actions ([`628fc09`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/628fc09a75db96096a18a5c76bff041701f1f863))
+
+### Documentation
+
+- **contributing:** add a contributing guide and a security policy ([`b450b80`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/b450b806d41876337b44a0f108cd0863f224d116))
+- **readme:** describe pause, backup, offline, languages, book extras and the nonce CSP ([`0a28f17`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/0a28f17bebed04ff6b94f6228f5f54dfbb84759c))
+- **legal:** refresh the policy date for the offline cache and error reports ([`2c27278`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/2c272785672baeaecf432fbd9b0efecd7e5f5281))
+
+### Chores
+
+- **github:** add issue templates and a pull request template ([`a59e767`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/a59e767a390a60a18555ccfcfa1b67e632e53d9d))
+
+## [1.0.0] - 2026-11-15
 
 ### Features
 
