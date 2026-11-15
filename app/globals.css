@@ -199,7 +199,7 @@ textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); bord
 .preview-page canvas { max-width: 100%; box-shadow: 0 4px 20px var(--shadow); }
 
 /* ---- footer, consent banner and policy pages ---- */
-.site-footer { position: relative; z-index: 1; max-width: 1040px; margin: 0 auto; padding: 8px 16px 40px; text-align: center; color: var(--muted); }
+.site-footer { position: relative; z-index: 1; max-width: 1040px; margin: 8px auto 40px; padding: 14px 16px; text-align: center; color: var(--muted); } /* a panel, so its text never sits on the animated backdrop */
 .site-footer ul { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 20px; margin: 0 0 8px; padding: 0; list-style: none; }
 .site-footer a, .link-button { color: var(--a1); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .site-footer p { margin: 0; font-size: 0.9rem; }

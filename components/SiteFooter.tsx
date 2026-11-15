@@ -4,7 +4,7 @@ import PrivacyChoicesButton from './PrivacyChoicesButton';
 
 export default function SiteFooter() {
     return (
-        <footer className="site-footer">
+        <footer className="site-footer panel">
             <nav aria-label="Legal and help">
                 <ul>
                     <li><Link href="/privacy">Privacy and cookies</Link></li>
