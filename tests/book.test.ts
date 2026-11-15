@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { buildBook, coverTheme } from '../lib/pdf/book';
+import { buildBook, coverTheme, uniquePuzzle } from '../lib/pdf/book';
 import { contrast } from '../lib/palette';
 import { getTheme } from '../lib/themes';
 import { DEFAULT_COVER, planPages } from '../lib/bookConfig';
@@ -22,6 +22,15 @@ describe('book generator', () => {
         const r = await buildBook(smallBook({ counts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 3, 7: 0, 8: 0, 9: 0, 10: 0 } }), fonts);
         expect(Array.isArray(r.offGrade)).toBe(true);
         for (const o of r.offGrade) { expect(o.level).toBe(6); expect(o.grade).toBeLessThan(6); }
+    });
+
+    it('replaces a puzzle that is already in the book, repeatably', () => {
+        const seen = new Set<string>();
+        const first = uniquePuzzle(3, 'DUP-SEED', 0, seen);
+        const again = uniquePuzzle(3, 'DUP-SEED', 0, seen); // the same slot again collides with the first one
+        expect(again.puzzle).not.toEqual(first.puzzle);
+        expect(seen.size).toBe(2);
+        expect(uniquePuzzle(3, 'DUP-SEED', 0, new Set([first.puzzle.join('')])).puzzle).toEqual(again.puzzle);
     });
 
     it('is repeatable: the same seed and settings give the same pages', async () => {

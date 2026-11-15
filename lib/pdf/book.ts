@@ -113,6 +113,17 @@ function drawFrontCover(k: Kit, t: Theme, cfg: BookConfig, o: FrontCoverArgs) {
 }
 
 /**
+ * The puzzle for one slot of a book. No two puzzles in a book are the same: a repeat (very rare) is replaced from the
+ * next seeded stream, so the book stays repeatable. Different books may still share a puzzle by chance, which is harmless.
+ */
+export function uniquePuzzle(level: Level, seed: string, n: number, seen: Set<string>): Puzzle {
+    let p = generatePuzzle(level, puzzleRng(seed, level, n));
+    for (let retry = 1; seen.has(p.puzzle.join('')) && retry < 20; retry++) p = generatePuzzle(level, puzzleRng(seed, level, n + 10000 * retry));
+    seen.add(p.puzzle.join(''));
+    return p;
+}
+
+/**
  * Builds the whole book. `yieldToUi` is only for the main-thread fallback: it is awaited between puzzles
  * and pages so the browser can paint and respond while a large book is being made.
  */
@@ -136,9 +147,10 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
 
     // ---- 1. Generate puzzles (each one from its own seeded stream, so the book is repeatable) ----
     const entries: Entry[] = [];
+    const seenPuzzles = new Set<string>();
     for (const level of LEVELS) {
         for (let n = 0; n < (cfg.counts[level] || 0); n++) {
-            entries.push({ ...generatePuzzle(level, puzzleRng(seed, level, n)), level, number: entries.length + 1 });
+            entries.push({ ...uniquePuzzle(level, seed, n, seenPuzzles), level, number: entries.length + 1 });
             onProgress?.(entries.length, total, 'Generating puzzles');
             if (yieldToUi && entries.length % 2 === 0) await yieldToUi();
         }
