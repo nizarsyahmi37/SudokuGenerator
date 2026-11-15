@@ -282,3 +282,6 @@ table.stats thead th { background: var(--panel-2); }
 .shortcuts th, .shortcuts td { padding: 4px 6px; text-align: left; vertical-align: top; font-size: 0.9rem; }
 .shortcuts th { width: 42%; font-weight: 400; }
 .shortcuts kbd { display: inline-block; padding: 1px 7px; border: 1px solid var(--line-box); border-radius: 6px; background: var(--panel); font: inherit; font-weight: 700; }
+
+/* On narrow screens the stat row can wrap once the game has loaded; reserving both rows stops the board from jumping. */
+@media (max-width: 520px) { .statbar { min-height: 76px; align-content: flex-start; } }
