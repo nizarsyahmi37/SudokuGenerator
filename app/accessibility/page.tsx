@@ -19,6 +19,23 @@ export default function AccessibilityPage() {
                 and keyboard testing. We have <strong>not yet completed testing with screen readers on every platform</strong>, so there may be problems we have not found.
             </p>
 
+            <h2>Standards and scope</h2>
+            <ul>
+                <li><strong>WCAG 2.2, level AA</strong> is our target for every page and for the game itself.</li>
+                <li>
+                    <strong>ATAG 2.0, level AA</strong> applies to the puzzle book builder, because it is a tool for making content.
+                    For the tool&apos;s own interface we follow the same rules as the rest of the site: labelled, keyboard-operable controls, errors that are described in text, and a preview with a text equivalent of each page.
+                    For the content it makes, accessibility is automatic: PDFs are tagged, have a title, a language and bookmarks, every grid gets a text description, colours are checked for contrast, and a large print option is offered.
+                    When you add a cover picture the builder asks you to describe it, and it warns when your own text uses an alphabet its fonts do not cover yet.
+                </li>
+                <li>
+                    <strong>UAAG 2.0</strong> is written for browsers and PDF readers, not for websites, so we cannot conform to it ourselves.
+                    What we can do is respect what your browser and device pass on: light or dark mode, reduced motion, higher contrast, forced colours, zoom and text size, and keyboard-only use.
+                    The book preview is drawn by your browser, so your browser&apos;s own accessibility features apply to it.
+                </li>
+            </ul>
+            <p>These are our own claims. We have not had them checked by an independent evaluator.</p>
+
             <h2>What we have done</h2>
             <ul>
                 <li><strong>Colour and contrast:</strong> text reaches at least 4.5:1 and borders, focus rings and board lines at least 3:1, in every theme, in both light and dark mode. Colour is never the only way to show something: conflicting numbers also get a dashed outline and an icon.</li>
