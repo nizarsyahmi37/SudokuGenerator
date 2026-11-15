@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
-import { LEVELS, LEVEL_NAMES, CLUES, Level } from '../lib/sudoku';
-import { PAGE_SIZES, buildBook, levelColor, totalPuzzles } from '../lib/book';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { LEVELS, LEVEL_NAMES, CLUES, type Level } from '../lib/sudoku';
+import { DEFAULT_BLEED_MM, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type Paper } from '../lib/bookConfig';
+import { buildBookInWorker, type BookJob } from '../lib/bookClient';
+import { downloadBlob, pdfBlob } from '../lib/download';
+import { normalizeSeed, randomSeed } from '../lib/rng';
 import { THEME_KEYS, getTheme, themeLabel, type Mode } from '../lib/themes';
-import { css, readableOn } from '../lib/palette';
+import { css } from '../lib/palette';
+import BookPreview from './BookPreview';
 
 const MAX_TOTAL = 500;
 
@@ -17,49 +21,107 @@ function Step({ n, title, hint, children, id }: { n: number; title: string; hint
     );
 }
 
+function Radio({ name, checked, onChange, children, disabled }: { name: string; checked: boolean; onChange: () => void; children: React.ReactNode; disabled?: boolean }) {
+    return (
+        <label className={`chip${disabled ? ' is-off' : ''}`}>
+            <input type="radio" className="sr-only" name={name} checked={checked} onChange={onChange} disabled={disabled} />
+            <span>{children}</span>
+        </label>
+    );
+}
+
 export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string; gameMode: Mode }) {
     const uid = useId();
-    const [counts, setCounts] = useState<Record<Level, number>>(
-        () => Object.fromEntries(LEVELS.map((l) => [l, 2])) as Record<Level, number>,
-    );
+    const [counts, setCounts] = useState<Record<Level, number>>(() => Object.fromEntries(LEVELS.map((l) => [l, 2])) as Record<Level, number>);
+    const [seed, setSeed] = useState('');
+    const [output, setOutput] = useState<'digital' | 'print'>('digital');
     const [size, setSize] = useState('A5');
+    const [podSize, setPodSize] = useState('6 × 9 in');
     const [custom, setCustom] = useState({ w: 148, h: 210 });
     const [perPage, setPerPage] = useState<1 | 2>(1);
+    const [largePrint, setLargePrint] = useState(false);
+    const [bleedMm, setBleedMm] = useState(Number(DEFAULT_BLEED_MM.toFixed(3)));
+    const [bleedEdges, setBleedEdges] = useState<'outer' | 'all'>('outer');
+    const [cropMarks, setCropMarks] = useState(false);
+    const [paperStock, setPaperStock] = useState<Paper>('white');
     const [title, setTitle] = useState('Sudoku Puzzle Book');
+    const [author, setAuthor] = useState('');
     const [theme, setTheme] = useState(gameTheme);
     const [paper, setPaper] = useState<Mode>(gameMode);
+    const [copyrightOn, setCopyrightOn] = useState(true);
+    const [holder, setHolder] = useState('');
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [isbn, setIsbn] = useState('');
+    const [backCover, setBackCover] = useState('');
     const [progress, setProgress] = useState({ text: '', pct: 0, error: false });
     const [busy, setBusy] = useState(false);
+    const [built, setBuilt] = useState<{ result: BookResult; key: string } | null>(null);
+    const [which, setWhich] = useState<'interior' | 'cover'>('interior');
+    const [copied, setCopied] = useState(false);
+    const jobRef = useRef<BookJob | null>(null);
+
+    // Seeds are random, so they are created on the client only (server and client would disagree and break hydration).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-side initialisation
+    useEffect(() => { setSeed(randomSeed()); }, []);
+    useEffect(() => () => jobRef.current?.cancel(), []);
 
     // The book follows the game's theme and light/dark mode, and can still be changed in step 3.
-    useEffect(() => setTheme(gameTheme), [gameTheme]);
-    useEffect(() => setPaper(gameMode), [gameMode]);
+    const [seenGame, setSeenGame] = useState(`${gameTheme}:${gameMode}`);
+    if (seenGame !== `${gameTheme}:${gameMode}`) {
+        setSeenGame(`${gameTheme}:${gameMode}`);
+        setTheme(gameTheme);
+        setPaper(gameMode);
+    }
 
+    const printing = output === 'print';
+    const [w, h] = printing
+        ? (podSize === 'Custom' ? [custom.w, custom.h] : POD_TRIMS[podSize])
+        : (size === 'Custom' ? [custom.w, custom.h] : PAGE_SIZES[size]);
     const total = totalPuzzles(counts);
-    const [w, h] = size === 'Custom' ? [custom.w, custom.h] : PAGE_SIZES[size];
     const validSize = w >= 60 && h >= 60 && w <= 600 && h <= 600;
-    const canBuild = total > 0 && total <= MAX_TOTAL && validSize && !busy;
-    const pages = total ? 3 + Math.ceil(total / perPage) + Math.ceil(total / 4) : 0;
+    const validBleed = bleedMm >= 0 && bleedMm <= 10;
+    const seedNorm = normalizeSeed(seed);
+
+    const cfg: BookConfig = useMemo(() => ({
+        counts, pageWidth: w, pageHeight: h, puzzlesPerPage: largePrint ? 1 : perPage, title, author, theme, mode: paper, seed: seedNorm, largePrint,
+        print: printing ? { bleedMm, bleedEdges, cropMarks, paper: paperStock } : null,
+        copyright: { enabled: copyrightOn, holder, year, isbn },
+        backCover,
+    }), [counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, copyrightOn, holder, year, isbn, backCover]);
+    const key = JSON.stringify(cfg);
+    const plan = planPages(cfg);
+    const spine = printing ? spineWidthMm(plan.pages, paperStock) : 0;
+    const canBuild = total > 0 && total <= MAX_TOTAL && validSize && validBleed && !!seedNorm && !busy;
+    const stale = !!built && built.key !== key;
 
     const setCount = (l: Level, v: number) => setCounts((c) => ({ ...c, [l]: Math.max(0, Math.min(MAX_TOTAL, Math.floor(v) || 0)) }));
     const preset = (n: number) => setCounts(Object.fromEntries(LEVELS.map((l) => [l, n])) as Record<Level, number>);
 
     const build = async () => {
         setBusy(true);
+        setBuilt(null);
         setProgress({ text: 'Starting…', pct: 0, error: false });
+        const job = buildBookInWorker(cfg, (done, all, phase) => setProgress({ text: `${phase}… ${done} of ${all}`, pct: all ? (done / all) * 100 : 0, error: false }));
+        jobRef.current = job;
         try {
-            const pdf = await buildBook(
-                { counts, pageWidth: w, pageHeight: h, puzzlesPerPage: perPage, title, theme, mode: paper },
-                (done, all, phase) => setProgress({ text: `${phase}… ${done} of ${all}`, pct: all ? (done / all) * 100 : 0, error: false }),
-            );
-            pdf.save('sudoku-book.pdf');
-            setProgress({ text: `Done. Your ${pdf.getNumberOfPages()}-page book has been downloaded.`, pct: 100, error: false });
+            const result = await job.promise;
+            setBuilt({ result, key });
+            setWhich('interior');
+            setProgress({ text: `Done. ${result.pages} pages are ready to preview and download.`, pct: 100, error: false });
         } catch (e) {
-            setProgress({ text: 'The book could not be created: ' + (e as Error).message, pct: 0, error: true });
+            const cancelled = (e as Error).message === 'Cancelled';
+            setProgress({ text: cancelled ? 'Cancelled.' : `The book could not be created: ${(e as Error).message}`, pct: 0, error: !cancelled });
         } finally {
+            jobRef.current = null;
             setBusy(false);
         }
     };
+
+    const fileBase = (title.trim() || 'sudoku-book').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sudoku-book';
+    const copySeed = async () => {
+        try { await navigator.clipboard.writeText(seedNorm); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard unavailable */ }
+    };
+    const shown = built && (which === 'cover' && built.result.cover ? built.result.cover : built.result.interior);
 
     return (
         <div className="book">
@@ -85,51 +147,100 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                 <p className={`status ${total > MAX_TOTAL ? 'err' : ''}`} role="status">
                     {total} puzzle{total === 1 ? '' : 's'} selected{total > MAX_TOTAL ? `. The maximum is ${MAX_TOTAL}.` : ''}
                 </p>
+                <div className="seed">
+                    <label className="field">Seed
+                        <input type="text" value={seed} onChange={(e) => setSeed(e.target.value)} spellCheck={false} autoCapitalize="characters" aria-describedby={`${uid}-seed-help`} />
+                    </label>
+                    <button type="button" onClick={() => setSeed(randomSeed())}>New seed</button>
+                    <button type="button" onClick={copySeed}>{copied ? 'Copied' : 'Copy seed'}</button>
+                </div>
+                <p id={`${uid}-seed-help`} className="hint">The same seed, puzzle counts and settings always give the same book. The seed is printed on the copyright page.</p>
             </Step>
 
-            <Step n={2} id={`${uid}-s2`} title="Page setup" hint="Solutions always go at the back, four to a page.">
+            <Step n={2} id={`${uid}-s2`} title="Format and pages" hint="Choose a digital book or a print-ready one.">
                 <fieldset className="plain">
-                    <legend className="field-label">Page size</legend>
+                    <legend className="field-label">Output</legend>
                     <div className="chips">
-                        {[...Object.keys(PAGE_SIZES), 'Custom'].map((k) => (
-                            <label key={k} className="chip">
-                                <input type="radio" className="sr-only" name={`${uid}-size`} checked={size === k} onChange={() => setSize(k)} />
-                                <span>{k}{k === 'A5' ? ' (default)' : ''}</span>
-                            </label>
-                        ))}
+                        <Radio name={`${uid}-out`} checked={!printing} onChange={() => setOutput('digital')}>Digital (screen)</Radio>
+                        <Radio name={`${uid}-out`} checked={printing} onChange={() => setOutput('print')}>Print-ready</Radio>
                     </div>
                 </fieldset>
-                {size === 'Custom' && (
+
+                <fieldset className="plain" style={{ marginTop: 14 }}>
+                    <legend className="field-label">{printing ? 'Trim size' : 'Page size'}</legend>
+                    <div className="chips">
+                        {printing
+                            ? [...Object.keys(POD_TRIMS), 'Custom'].map((k) => <Radio key={k} name={`${uid}-pod`} checked={podSize === k} onChange={() => setPodSize(k)}>{k}</Radio>)
+                            : [...Object.keys(PAGE_SIZES), 'Custom'].map((k) => <Radio key={k} name={`${uid}-size`} checked={size === k} onChange={() => setSize(k)}>{k}{k === 'A5' ? ' (default)' : ''}</Radio>)}
+                    </div>
+                </fieldset>
+                {(printing ? podSize : size) === 'Custom' && (
                     <div className="custom-size">
                         <label className="field">Width (mm)
-                            <input type="number" min={60} max={600} value={custom.w} onChange={(e) => setCustom({ ...custom, w: Number(e.target.value) })} aria-invalid={!validSize} aria-describedby={validSize ? undefined : `${uid}-size-err`} />
+                            <input type="number" min={60} max={600} value={custom.w} onChange={(e) => setCustom({ ...custom, w: Number(e.target.value) })} aria-invalid={!validSize} />
                         </label>
                         <label className="field">Height (mm)
-                            <input type="number" min={60} max={600} value={custom.h} onChange={(e) => setCustom({ ...custom, h: Number(e.target.value) })} aria-invalid={!validSize} aria-describedby={validSize ? undefined : `${uid}-size-err`} />
+                            <input type="number" min={60} max={600} value={custom.h} onChange={(e) => setCustom({ ...custom, h: Number(e.target.value) })} aria-invalid={!validSize} />
                         </label>
                     </div>
                 )}
-                {!validSize && <p id={`${uid}-size-err`} className="status err" role="alert">Width and height must be between 60 and 600 mm.</p>}
-                <fieldset className="plain" style={{ marginTop: 14 }}>
+                {!validSize && <p className="status err" role="alert">Width and height must be between 60 and 600 mm.</p>}
+                <p className="hint">{w.toFixed(1)} × {h.toFixed(1)} mm</p>
+
+                {printing && (
+                    <div className="print-opts">
+                        <fieldset className="plain">
+                            <legend className="field-label">Paper stock</legend>
+                            <div className="chips">
+                                <Radio name={`${uid}-stock`} checked={paperStock === 'white'} onChange={() => setPaperStock('white')}>White</Radio>
+                                <Radio name={`${uid}-stock`} checked={paperStock === 'cream'} onChange={() => setPaperStock('cream')}>Cream</Radio>
+                            </div>
+                        </fieldset>
+                        <fieldset className="plain">
+                            <legend className="field-label">Bleed</legend>
+                            <div className="chips">
+                                <Radio name={`${uid}-bleed`} checked={bleedEdges === 'outer'} onChange={() => setBleedEdges('outer')}>Outer edges (Amazon KDP)</Radio>
+                                <Radio name={`${uid}-bleed`} checked={bleedEdges === 'all'} onChange={() => setBleedEdges('all')}>All sides (IngramSpark, Lulu)</Radio>
+                            </div>
+                        </fieldset>
+                        <label className="field">Bleed size (mm)
+                            <input type="number" min={0} max={10} step={0.025} value={bleedMm} onChange={(e) => setBleedMm(Number(e.target.value))} aria-invalid={!validBleed} />
+                        </label>
+                        <label className="check">
+                            <input type="checkbox" checked={cropMarks} onChange={(e) => setCropMarks(e.target.checked)} />
+                            <span>Add crop marks (most print-on-demand services do not want them)</span>
+                        </label>
+                        <p className="hint">The interior and a separate cover wrap (back, spine and front) are created. The spine width is worked out from the page count and paper stock.</p>
+                    </div>
+                )}
+
+                <label className="check" style={{ marginTop: 14 }}>
+                    <input type="checkbox" checked={largePrint} onChange={(e) => setLargePrint(e.target.checked)} />
+                    <span>Large print: bigger type, one puzzle per page, two solutions per page</span>
+                </label>
+                <fieldset className="plain" style={{ marginTop: 14 }} disabled={largePrint}>
                     <legend className="field-label">Puzzles per page</legend>
                     <div className="chips">
-                        <label className="chip"><input type="radio" className="sr-only" name={`${uid}-per`} checked={perPage === 1} onChange={() => setPerPage(1)} /><span>1, larger boards</span></label>
-                        <label className="chip"><input type="radio" className="sr-only" name={`${uid}-per`} checked={perPage === 2} onChange={() => setPerPage(2)} /><span>2, compact</span></label>
+                        <Radio name={`${uid}-per`} checked={(largePrint ? 1 : perPage) === 1} onChange={() => setPerPage(1)} disabled={largePrint}>1, larger boards</Radio>
+                        <Radio name={`${uid}-per`} checked={!largePrint && perPage === 2} onChange={() => setPerPage(2)} disabled={largePrint}>2, compact</Radio>
                     </div>
                 </fieldset>
-                <p className="hint">{w} × {h} mm</p>
             </Step>
 
-            <Step n={3} id={`${uid}-s3`} title="Style your book" hint="Pick a title, a theme and light or dark paper.">
-                <label className="field">Book title
-                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Sudoku Puzzle Book" />
-                </label>
+            <Step n={3} id={`${uid}-s3`} title="Style and details" hint="Title, author, theme, light or dark paper, and copyright.">
+                <div className="two-col">
+                    <label className="field">Book title
+                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Sudoku Puzzle Book" />
+                    </label>
+                    <label className="field">Author or publisher
+                        <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} autoComplete="off" />
+                    </label>
+                </div>
                 <fieldset className="plain">
                     <legend className="field-label">Paper</legend>
                     <div className="chips">
-                        {(['light', 'dark'] as Mode[]).map((m) => (
-                            <label key={m} className="chip"><input type="radio" className="sr-only" name={`${uid}-paper`} checked={paper === m} onChange={() => setPaper(m)} /><span>{m === 'light' ? 'Light paper' : 'Dark paper'}</span></label>
-                        ))}
+                        <Radio name={`${uid}-paper`} checked={paper === 'light'} onChange={() => setPaper('light')}>Light paper</Radio>
+                        <Radio name={`${uid}-paper`} checked={paper === 'dark'} onChange={() => setPaper('dark')}>Dark paper</Radio>
                     </div>
                     {paper === 'dark' && <p className="hint">Dark pages look striking on screen but use a lot of ink when printed.</p>}
                 </fieldset>
@@ -151,19 +262,64 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         })}
                     </div>
                 </fieldset>
+                <label className="check" style={{ marginTop: 14 }}>
+                    <input type="checkbox" checked={copyrightOn} onChange={(e) => setCopyrightOn(e.target.checked)} />
+                    <span>Include a copyright page</span>
+                </label>
+                {copyrightOn && (
+                    <div className="two-col" style={{ marginTop: 10 }}>
+                        <label className="field">Copyright holder
+                            <input type="text" value={holder} onChange={(e) => setHolder(e.target.value)} placeholder={author || 'Your name'} autoComplete="off" />
+                        </label>
+                        <label className="field">Year
+                            <input type="number" min={1900} max={2200} value={year} onChange={(e) => setYear(Number(e.target.value))} />
+                        </label>
+                        <label className="field">ISBN (optional)
+                            <input type="text" value={isbn} onChange={(e) => setIsbn(e.target.value)} inputMode="numeric" autoComplete="off" />
+                        </label>
+                    </div>
+                )}
+                {printing && (
+                    <label className="field" style={{ marginTop: 10 }}>Back cover text (optional)
+                        <textarea rows={3} value={backCover} onChange={(e) => setBackCover(e.target.value)} />
+                    </label>
+                )}
             </Step>
 
             <section className="panel step create" aria-labelledby={`${uid}-s4`}>
-                <div className="step-head"><span className="step-no" aria-hidden="true">4</span><div><h2 id={`${uid}-s4`}>Create your book</h2>
-                    <p>{total ? `${total} puzzles · about ${pages} pages · ${w} × ${h} mm · ${themeLabel(theme)}, ${paper} paper` : 'Add at least one puzzle in step 1.'}</p></div></div>
-                <button type="button" className="cta" disabled={!canBuild} onClick={build}>{busy ? 'Building…' : 'Generate book PDF'}</button>
+                <div className="step-head"><span className="step-no" aria-hidden="true">4</span><div><h2 id={`${uid}-s4`}>Build, preview and download</h2>
+                    <p>{total ? `${total} puzzles · ${plan.pages} pages · ${w.toFixed(0)} × ${h.toFixed(0)} mm${printing ? ` · spine about ${spine.toFixed(1)} mm` : ''} · ${themeLabel(theme)}, ${paper} paper` : 'Add at least one puzzle in step 1.'}</p></div></div>
+                <div className="build-row">
+                    <button type="button" className="cta" disabled={!canBuild} onClick={build}>{busy ? 'Building…' : built ? 'Build again' : 'Build book'}</button>
+                    {busy && <button type="button" className="cancel" onClick={() => jobRef.current?.cancel()}>Cancel</button>}
+                </div>
                 {(busy || progress.text) && (
                     <>
                         {busy && <progress className="bar" max={100} value={progress.pct} aria-label="Book progress" />}
                         <p className={`status ${progress.error ? 'err' : ''}`} role={progress.error ? 'alert' : 'status'}>{progress.text}</p>
                     </>
                 )}
-                <p className="hint">The PDF has a title, language and a bookmark outline for navigation, and all text is real, selectable text.</p>
+                {stale && <p className="status err" role="status">Your settings have changed since this book was built. Build again to update the preview and downloads.</p>}
+
+                {built && shown && (
+                    <div className="result">
+                        <div className="tools">
+                            <button type="button" onClick={() => downloadBlob(pdfBlob(built.result.interior), printing ? `${fileBase}-interior.pdf` : `${fileBase}.pdf`)}>Download {printing ? 'interior' : 'book'} PDF</button>
+                            {built.result.cover && <button type="button" onClick={() => downloadBlob(pdfBlob(built.result.cover as Uint8Array), `${fileBase}-cover.pdf`)}>Download cover PDF</button>}
+                        </div>
+                        {built.result.cover && (
+                            <fieldset className="plain" style={{ marginTop: 12 }}>
+                                <legend className="field-label">Preview</legend>
+                                <div className="chips">
+                                    <Radio name={`${uid}-which`} checked={which === 'interior'} onChange={() => setWhich('interior')}>Interior</Radio>
+                                    <Radio name={`${uid}-which`} checked={which === 'cover'} onChange={() => setWhich('cover')}>Cover wrap</Radio>
+                                </div>
+                            </fieldset>
+                        )}
+                        <BookPreview bytes={shown} pageLabel={(n) => `${which === 'cover' ? 'Cover wrap' : 'Page'} ${n} preview`} />
+                        <p className="hint">Tagged PDF with a title, language, bookmarks, text alternatives for every board and embedded fonts. Seed: {seedNorm}.</p>
+                    </div>
+                )}
             </section>
         </div>
     );

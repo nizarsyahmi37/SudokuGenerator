@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Board, CLUES, LEVELS, LEVEL_NAMES, Level, Puzzle, findConflicts, generatePuzzle } from '../lib/sudoku';
-import { levelColor } from '../lib/book';
+import { levelColor } from '../lib/bookConfig';
 import { readableOn, css } from '../lib/palette';
 import { ExportFormat, ExportKind, exportBoard } from '../lib/export';
 import AdSlot from './AdSlot';

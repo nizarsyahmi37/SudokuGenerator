@@ -177,3 +177,24 @@ html[data-effects="off"] *, html[data-effects="off"] *::before, html[data-effect
     .cell.conflict { outline: 2px dashed CanvasText; }
     .chip input:checked + span, .tabs button.on, .lchip.on { outline: 3px solid Highlight; }
 }
+
+/* ---- book builder: seed, print options, preview ---- */
+.seed { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 12px; }
+.seed .field { flex: 1 1 180px; margin-bottom: 0; }
+.seed button, .build-row .cancel { min-height: 44px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); font-weight: 600; }
+.seed button:hover, .build-row .cancel:hover { background: var(--bg-glow); }
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 12px; }
+.print-opts { display: grid; gap: 14px; margin-top: 12px; padding: 14px; border: 1px dashed var(--border); border-radius: 12px; }
+.print-opts .field { margin-bottom: 0; max-width: 220px; }
+textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--cell); font: inherit; font-weight: 600; resize: vertical; text-transform: none; letter-spacing: 0; }
+.chip.is-off span { opacity: 0.55; cursor: default; }
+.build-row { display: flex; gap: 8px; }
+.build-row .cta { flex: 1; }
+.result { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+.preview-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+.preview-nav button { min-height: 40px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); font-weight: 600; }
+.preview-count { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.preview-count input { width: 64px; min-height: 40px; text-align: center; border: 1px solid var(--border); border-radius: 10px; background: var(--cell); }
+.preview-page { display: flex; justify-content: center; padding: 12px; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel-2); overflow: auto; }
+.preview-page canvas { max-width: 100%; box-shadow: 0 4px 20px var(--shadow); }
+

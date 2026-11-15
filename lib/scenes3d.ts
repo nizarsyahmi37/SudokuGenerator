@@ -1,5 +1,6 @@
 import type * as THREE_NS from 'three';
-import type { RGB, Theme } from './bookThemes';
+import type { RGB } from './palette';
+import type { Theme } from './themes';
 
 type T3 = typeof THREE_NS;
 export type SceneUpdate = (t: number, dt: number) => void;
