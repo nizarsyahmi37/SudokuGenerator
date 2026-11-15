@@ -11,6 +11,7 @@ import { THEME_KEYS, getTheme, themeLabel, type Mode } from '../lib/themes';
 import { css } from '../lib/palette';
 import { unsupportedIn } from '../lib/pdf/scripts';
 import BookPreview from './BookPreview';
+import CoverPreview from './CoverPreview';
 
 const MAX_TOTAL = 500;
 
@@ -418,6 +419,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         <textarea rows={3} value={backCover} onChange={(e) => setBackCover(e.target.value)} />
                     </label>
                 )}
+                <CoverPreview cfg={cfg} />
             </Step>
 
             <section className="panel step create" aria-labelledby={`${uid}-s4`}>

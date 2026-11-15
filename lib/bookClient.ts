@@ -18,6 +18,8 @@ export interface JobOptions {
     loadFonts?: (cfg: BookConfig) => Promise<FontSet>;
     /** Forces the main-thread path, for testing. */
     forceMain?: boolean;
+    /** `cover` builds only the cover; the result's `interior` is then the cover PDF. */
+    kind?: 'book' | 'cover';
 }
 
 let nextId = 1;
@@ -31,12 +33,13 @@ const ownTextScripts = (cfg: BookConfig) => scriptsIn(cfg.title, cfg.author, cfg
 function buildOnMainThread(cfg: BookConfig, onProgress: Progress, opts: JobOptions): BookJob {
     let cancelled = false;
     const promise = (async () => {
-        const [{ buildBook }, { fetchFonts }] = await Promise.all([import('./pdf/book'), import('./pdf/kit')]);
+        const [{ buildBook, buildCoverPreview }, { fetchFonts }] = await Promise.all([import('./pdf/book'), import('./pdf/kit')]);
         const fonts = opts.loadFonts ? await opts.loadFonts(cfg) : await fetchFonts(opts.fontsBase ?? `${location.origin}/fonts/`, ownTextScripts(cfg));
         const yieldToUi = async () => {
             if (cancelled) throw new Error('Cancelled');
             await new Promise<void>((r) => setTimeout(r, 0));
         };
+        if (opts.kind === 'cover') return { interior: await buildCoverPreview(cfg, fonts), pages: 1, offGrade: [] };
         return buildBook(cfg, fonts, onProgress, yieldToUi);
     })();
     return { promise, mode: 'main', cancel: () => { cancelled = true; } };
@@ -74,7 +77,7 @@ export function buildBookInWorker(cfg: BookConfig, onProgress: Progress, opts: J
             fallback = buildOnMainThread(cfg, onProgress, opts);
             fallback.promise.then(resolve, reject);
         };
-        const req: WorkerRequest = { id, cfg, fontsBase: opts.fontsBase ?? `${location.origin}/fonts/` };
+        const req: WorkerRequest = { id, cfg, fontsBase: opts.fontsBase ?? `${location.origin}/fonts/`, kind: opts.kind };
         worker.postMessage(req);
     });
     return {

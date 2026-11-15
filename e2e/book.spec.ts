@@ -17,7 +17,7 @@ const setCounts = async (page: Page, n: number) => {
 test('builds a book in the background, previews it and downloads a real PDF', async ({ page }) => {
     await setCounts(page, 1);
     await build(page);
-    const canvas = page.locator('.preview canvas');
+    const canvas = page.locator('.result .preview canvas');
     await expect(canvas).toBeVisible();
     const ink = await canvas.evaluate((c: HTMLCanvasElement) => { const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 200) n++; return n; });
     expect(ink).toBeGreaterThan(1000);
@@ -77,7 +77,7 @@ test('print-ready output makes an interior and a cover PDF with a spine width', 
     await expect(page.getByRole('button', { name: 'Download cover PDF' })).toBeVisible();
     await expect(page.locator('.create .step-head p')).toContainText(/spine about/);
     await page.getByLabel('Cover wrap').check({ force: true });
-    await expect(page.locator('.preview canvas')).toBeVisible();
+    await expect(page.locator('.result .preview canvas')).toBeVisible();
 });
 
 test('large print, ink saver and the barcode area are offered for print', async ({ page }) => {
@@ -89,12 +89,12 @@ test('large print, ink saver and the barcode area are offered for print', async 
 });
 
 test('cover picture upload needs a description field and can be removed', async ({ page }) => {
-    await page.locator('input[type=file]').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: PNG });
+    await page.locator('input[type=file][accept^="image"]').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: PNG });
     await expect(page.getByLabel('Describe the picture for screen readers')).toBeVisible();
     await page.getByLabel('Describe the picture for screen readers').fill('A tiny test picture');
     await page.getByRole('button', { name: 'Remove picture' }).click();
     await expect(page.getByLabel('Describe the picture for screen readers')).toBeHidden();
-    await page.locator('input[type=file]').setInputFiles({ name: 'x.gif', mimeType: 'image/gif', buffer: Buffer.from('GIF89a') });
+    await page.locator('input[type=file][accept^="image"]').setInputFiles({ name: 'x.gif', mimeType: 'image/gif', buffer: Buffer.from('GIF89a') });
     await expect(page.locator('p[role=alert]')).toContainText('PNG or JPEG');
 });
 
@@ -113,7 +113,7 @@ test('browsers without Web Workers still build the book, on the page', async ({ 
     await setCounts(page, 1);
     await build(page);
     await expect(page.getByText(/cannot run background workers/)).toBeVisible();
-    await expect(page.locator('.preview canvas')).toBeVisible();
+    await expect(page.locator('.result .preview canvas')).toBeVisible();
 });
 
 test('changing a setting after a build warns that the preview is out of date', async ({ page }) => {
@@ -142,4 +142,18 @@ test('extra pages: notes pages change the page count and the book still builds',
     await page.getByLabel(/Give every puzzle a name/).check();
     await build(page);
     await expect(page.locator('.preview-count')).toContainText(`of ${before + 3}`);
+});
+
+test('the cover preview shows while editing and follows the title without building the book', async ({ page }) => {
+    const canvas = page.locator('.cover-preview canvas');
+    await expect(canvas).toBeVisible({ timeout: 30_000 });
+    const pixels = () => canvas.evaluate((c: HTMLCanvasElement) => c.toDataURL().length);
+    await expect(page.locator('.cover-preview [role=status]')).toContainText(/front cover/);
+    const before = await pixels();
+    await page.getByLabel('Book title').fill('A Completely Different Title For This Book');
+    await expect(page.locator('.cover-preview [role=status]')).toContainText(/front cover/, { timeout: 30_000 });
+    await expect.poll(pixels, { timeout: 30_000 }).not.toBe(before);
+    await expect(page.getByRole('button', { name: /Download/ })).toHaveCount(0); // nothing was built
+    await page.getByRole('radio', { name: 'Print-ready' }).check({ force: true });
+    await expect(page.locator('.cover-preview [role=status]')).toContainText(/Back cover, spine and front cover/, { timeout: 30_000 });
 });

@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 /** Renders pages of a finished PDF to a canvas so the book can be checked before it is downloaded. */
-export default function BookPreview({ bytes, pageLabel }: { bytes: Uint8Array; pageLabel?: (n: number) => string }) {
+export default function BookPreview({ bytes, pageLabel, single }: { bytes: Uint8Array; pageLabel?: (n: number) => string; single?: boolean }) {
     const uid = useId();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [doc, setDoc] = useState<import('pdfjs-dist').PDFDocumentProxy | null>(null);
@@ -59,7 +59,7 @@ export default function BookPreview({ bytes, pageLabel }: { bytes: Uint8Array; p
     if (error) return <p className="status err" role="alert">{error}</p>;
     return (
         <div className="preview">
-            <div className="preview-nav" role="group" aria-label="Preview pages">
+            {!single && <div className="preview-nav" role="group" aria-label="Preview pages">
                 <button type="button" onClick={() => go(1)} disabled={page <= 1} aria-label="First page">«</button>
                 <button type="button" onClick={() => go(page - 1)} disabled={page <= 1}>Previous</button>
                 <label className="preview-count">
@@ -69,7 +69,7 @@ export default function BookPreview({ bytes, pageLabel }: { bytes: Uint8Array; p
                 </label>
                 <button type="button" onClick={() => go(page + 1)} disabled={page >= pages}>Next</button>
                 <button type="button" onClick={() => go(pages)} disabled={page >= pages} aria-label="Last page">»</button>
-            </div>
+            </div>}
             <div className="preview-page">
                 <canvas ref={canvasRef} role="img" aria-label={pageLabel ? pageLabel(page) : `Preview of page ${page} of ${pages}`} aria-describedby={`${uid}-text`} />
             </div>

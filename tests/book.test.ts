@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { inflateSync } from 'node:zlib';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { buildBook, coverTheme, uniquePuzzle } from '../lib/pdf/book';
+import { buildBook, buildCoverPreview, coverTheme, uniquePuzzle } from '../lib/pdf/book';
 import { contrast } from '../lib/palette';
 import { getTheme } from '../lib/themes';
 import { DEFAULT_COVER, DEFAULT_EXTRAS, planPages } from '../lib/bookConfig';
@@ -77,6 +77,24 @@ describe('book generator', () => {
         const first = puzzleTitles(cfg.seed, 5)[0].replace(/\s/g, '');
         expect(squash(await pageTexts((await buildBook(cfg, fonts)).interior))).toContain(first);
         expect(squash(await pageTexts((await buildBook(smallBook(), fonts)).interior))).not.toContain(first);
+    });
+
+    it('draws a cover preview without building the book', async () => {
+        const doc = await pdfjs.getDocument({ data: (await buildCoverPreview(smallBook({ title: 'Preview Me' }), fonts)).slice() }).promise;
+        expect(doc.numPages).toBe(1);
+        const page = await doc.getPage(1);
+        const [x0, y0, x1, y1] = page.view;
+        expect(Math.round((x1 - x0) / 72 * 25.4)).toBe(148);
+        expect(Math.round((y1 - y0) / 72 * 25.4)).toBe(210);
+        expect((await page.getTextContent()).items.map((i) => ('str' in i ? i.str : '')).join('')).toContain('Preview');
+    });
+
+    it('draws the whole cover wrap, wider than a page, as the print preview', async () => {
+        const print = { bleedMm: 3.175, bleedEdges: 'outer' as const, cropMarks: false, paper: 'white' as const };
+        const doc = await pdfjs.getDocument({ data: (await buildCoverPreview(smallBook({ print }), fonts)).slice() }).promise;
+        expect(doc.numPages).toBe(1);
+        const [x0, , x1] = (await doc.getPage(1)).view;
+        expect((x1 - x0) / 72 * 25.4).toBeGreaterThan(2 * 148);
     });
 
     it('is repeatable: the same seed and settings give the same pages', async () => {

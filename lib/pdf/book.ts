@@ -544,4 +544,28 @@ async function buildCover({ cfg, t, fonts, pages, spineMm, bleed, slug, total, s
     return k.finish();
 }
 
+/**
+ * Just the cover, for the live preview while a book is being set up. A digital book gets its front cover; a print book
+ * gets the whole wrap (back, spine and front) at the spine width its page count will need. No puzzles are generated.
+ */
+export async function buildCoverPreview(cfg: BookConfig, fonts: FontSet): Promise<Uint8Array> {
+    const ink = !!cfg.print && cfg.inkSaver;
+    const t = ink ? INK_SAVER : getTheme(cfg.theme, cfg.mode);
+    const ct = ink ? t : coverTheme(t, cfg.cover);
+    const seed = normalizeSeed(cfg.seed);
+    const { total, pages } = planPages(cfg);
+    const TW = cfg.pageWidth, TH = cfg.pageHeight;
+    const sc = Math.max(Math.min(TW / 148, TH / 210), 0.7);
+    if (cfg.print) {
+        const spineMm = spineWidthMm(pages, cfg.print.paper);
+        return buildCover({ cfg, t: ct, fonts, pages, spineMm, bleed: cfg.print.bleedMm, slug: cfg.print.cropMarks ? 9 : 0, total, seed });
+    }
+    const title = cfg.title.trim() || 'Sudoku';
+    const k = new Kit({ title: `${title} (cover preview)`, subject: 'Front cover preview' }, fonts);
+    k.newPage(TW, TH);
+    k.artifact(() => k.rect(0, 0, TW, TH, { fill: ct.page }), 'Page');
+    drawFrontCover(k, ct, cfg, { x: 0, y: 0, w: TW, h: TH, bleedTop: 0, bleedRight: 0, total, seed, sc });
+    return k.finish();
+}
+
 export { totalPuzzles };
