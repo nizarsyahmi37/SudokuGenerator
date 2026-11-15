@@ -266,7 +266,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         </label>
                         <label className="check">
                             <input type="checkbox" checked={inkSaver} onChange={(e) => setInkSaver(e.target.checked)} />
-                            <span>Ink saver: black and white only, no coloured pages, fills or cover picture</span>
+                            <span>Ink saver: black and white only, printed in pure black ink, with no coloured pages, fills or cover picture</span>
                         </label>
                         <label className="check">
                             <input type="checkbox" checked={barcodeArea} onChange={(e) => setBarcodeArea(e.target.checked)} />

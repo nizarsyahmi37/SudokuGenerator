@@ -50,6 +50,8 @@ export interface DocInfo {
     subject?: string;
     keywords?: string;
     lang?: string;
+    /** Print the whole document in the black ink alone (no RGB). Colours are turned into shades of black. */
+    pureBlack?: boolean;
 }
 
 export interface TextOpts {
@@ -78,8 +80,10 @@ export class Kit {
     private finished: Promise<Uint8Array>;
     pageCount = 0;
     private extraNames = new Set<string>();
+    private pureBlack: boolean;
 
     constructor(info: DocInfo, fonts: FontSet) {
+        this.pureBlack = !!info.pureBlack;
         this.doc = new PDFDocument({
             autoFirstPage: false,
             font: '', // no default font: only the embedded ones are used (the browser build has no standard fonts)
@@ -164,15 +168,25 @@ export class Kit {
         this.doc.endMarkedContent();
     }
 
+    /**
+     * The colour as PDFKit wants it. Normally RGB. With pure black, a grey becomes the K (black) channel of CMYK alone,
+     * so a printer lays down black ink only instead of mixing it from several inks.
+     */
+    private col(c: RGB): RGB | [number, number, number, number] {
+        if (!this.pureBlack) return c;
+        const luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        return [0, 0, 0, Math.round((1 - luma / 255) * 100)];
+    }
+
     // ----- drawing (all coordinates in mm, relative to the trim origin) -----
     private paint(fill: RGB | null, stroke: RGB | null, lw: number, opacity: number, path: () => void) {
         const d = this.doc;
         d.save();
         d.fillOpacity(opacity).strokeOpacity(opacity);
         path();
-        if (fill && stroke) d.lineWidth(lw * MM).fillAndStroke(fill, stroke);
-        else if (fill) d.fill(fill);
-        else if (stroke) d.lineWidth(lw * MM).stroke(stroke);
+        if (fill && stroke) d.lineWidth(lw * MM).fillAndStroke(this.col(fill), this.col(stroke));
+        else if (fill) d.fill(this.col(fill));
+        else if (stroke) d.lineWidth(lw * MM).stroke(this.col(stroke));
         else d.undash();
         d.restore();
     }
@@ -197,7 +211,7 @@ export class Kit {
         const d = this.doc;
         d.save();
         if (o.opacity !== undefined) d.fillOpacity(o.opacity);
-        d.fillColor(o.color ?? [0, 0, 0]);
+        d.fillColor(this.col(o.color ?? [0, 0, 0]));
         let cx = left * MM;
         for (const r of splitRuns(str)) {
             d.font(this.fontFor(o.font ?? 'sans', r.script)).fontSize(size);

@@ -165,6 +165,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
         author: author || undefined,
         subject: `${total} sudoku puzzles in ten levels, with solutions`,
         keywords: `sudoku, puzzles, seed ${seed}`,
+        pureBlack: ink,
     }, fonts);
 
     interface Geo { recto: boolean; bl: number; br: number; mediaW: number; mediaH: number; ox: number; oy: number }
@@ -465,7 +466,7 @@ async function buildCover({ cfg, t, fonts, pages, spineMm, bleed, slug, total, s
     const author = cfg.author.trim();
     const sc = Math.max(Math.min(TW / 148, TH / 210), 0.7);
     const W = 2 * TW + spineMm, H = TH;
-    const k = new Kit({ title: `${title} (cover)`, author: author || undefined, subject: 'Print cover wrap: back cover, spine and front cover' }, fonts);
+    const k = new Kit({ title: `${title} (cover)`, author: author || undefined, subject: 'Print cover wrap: back cover, spine and front cover', pureBlack: inkSaver }, fonts);
     const mediaW = W + 2 * bleed + 2 * slug, mediaH = H + 2 * bleed + 2 * slug;
     k.newPage(mediaW, mediaH, slug + bleed, slug + bleed, {
         trim: [slug + bleed, slug + bleed, slug + bleed + W, slug + bleed + H],

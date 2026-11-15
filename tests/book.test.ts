@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { inflateSync } from 'node:zlib';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { buildBook, coverTheme, uniquePuzzle } from '../lib/pdf/book';
 import { contrast } from '../lib/palette';
@@ -9,6 +10,20 @@ import { buildBookInWorker } from '../lib/bookClient';
 import { loadFonts, loadFontsWithScripts, makePng, pageTexts, smallBook } from './helpers';
 
 const fonts = loadFonts();
+
+/** Counts colour settings in the page content of a PDF: RGB, CMYK, and CMYK colours that use any ink but black. */
+function contentOps(pdf: Uint8Array) {
+    const text = Buffer.from(pdf).toString('latin1');
+    let all = '';
+    for (const m of text.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+        try { all += inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1') + '\n'; } catch { /* not a compressed stream */ }
+    }
+    const rgb = [...all.matchAll(/\/DeviceRGB (?:cs|CS)/g)].length;
+    const num = '-?\\d*\\.?\\d+';
+    const cmyk = [...all.matchAll(new RegExp(`(${num}) (${num}) (${num}) (${num}) (?:scn|SCN)`, 'g'))];
+    const cmykMixed = cmyk.filter((m) => Number(m[1]) || Number(m[2]) || Number(m[3])).length;
+    return { rgb, k: cmyk.length, cmykMixed };
+}
 
 describe('book generator', () => {
     it('lays out the planned number of pages', async () => {
@@ -120,6 +135,19 @@ describe('book generator', () => {
         expect(mono.cover).toBeDefined();
         expect(await pageTexts(mono.interior)).toEqual(await pageTexts(color.interior));
         expect(mono.interior.length).toBeLessThan(color.interior.length * 1.5); // sanity: no pictures embedded
+    });
+
+    it('ink saver prints in the black channel only, never in RGB or mixed CMYK', async () => {
+        const print = { bleedMm: 3.175, bleedEdges: 'outer' as const, cropMarks: true, paper: 'white' as const };
+        const mono = await buildBook(smallBook({ print, inkSaver: true }), fonts);
+        const color = await buildBook(smallBook({ print }), fonts);
+        for (const bytes of [mono.interior, mono.cover as Uint8Array]) {
+            const ops = contentOps(bytes);
+            expect(ops.rgb).toBe(0);
+            expect(ops.k).toBeGreaterThan(20);
+            expect(ops.cmykMixed).toBe(0); // every CMYK colour is 0 0 0 K
+        }
+        expect(contentOps(color.interior).rgb).toBeGreaterThan(20); // the normal book is RGB, so the check above means something
     });
 
     it('barcode area is optional on the cover wrap', async () => {
