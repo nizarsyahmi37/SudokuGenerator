@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Minor and patch updates arrive as one pull request a week instead of dozens.
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # `typescript` is deliberately an alias for TypeScript 6 (see the README), so Dependabot must not "fix" it.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+    labels: [dependencies]
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: "ci(deps)"
