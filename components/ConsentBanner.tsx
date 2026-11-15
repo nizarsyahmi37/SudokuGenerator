@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useConsent } from './ConsentProvider';
+import { useI18n } from './I18nProvider';
 
 /**
  * Asks before any advertising code is loaded. The three answers have equal weight, and the page
@@ -9,21 +10,20 @@ import { useConsent } from './ConsentProvider';
  */
 export default function ConsentBanner() {
     const { bannerOpen, choose, choice } = useConsent();
+    const { t } = useI18n();
     if (!bannerOpen) return null;
     return (
         <section className="consent" role="region" aria-labelledby="consent-title" aria-describedby="consent-text">
-            <h2 id="consent-title">Ads and your privacy</h2>
+            <h2 id="consent-title">{t('consent.title')}</h2>
             <p id="consent-text">
-                This site can show ads from Google AdSense, which may use cookies and similar identifiers. Nothing is loaded until you choose.
-                Games, puzzle books and exports work the same whichever you pick. You can change your mind at any time from <strong>Privacy choices</strong> in the footer.
-                Read the <Link href="/privacy">privacy and cookie policy</Link>.
+                {t('consent.text')} <Link href="/privacy">{t('consent.policy')}</Link>.
             </p>
             <div className="consent-actions">
-                <button type="button" onClick={() => choose('ads')}>Allow ads</button>
-                <button type="button" onClick={() => choose('ads-limited')}>Non-personalised ads only</button>
-                <button type="button" onClick={() => choose('essential')}>No ads</button>
+                <button type="button" onClick={() => choose('ads')}>{t('consent.allow')}</button>
+                <button type="button" onClick={() => choose('ads-limited')}>{t('consent.limited')}</button>
+                <button type="button" onClick={() => choose('essential')}>{t('consent.none')}</button>
             </div>
-            {choice && <p className="hint">Your current choice: {choice === 'ads' ? 'ads allowed' : choice === 'ads-limited' ? 'non-personalised ads only' : 'no ads'}.</p>}
+            {choice && <p className="hint">{t('consent.current', { choice: t(choice === 'ads' ? 'consent.c.ads' : choice === 'ads-limited' ? 'consent.c.limited' : 'consent.c.none') })}</p>}
         </section>
     );
 }

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Orbitron, Rajdhani } from 'next/font/google';
 import Providers from '../components/Providers';
 import SiteFooter from '../components/SiteFooter';
+import SkipLink from '../components/SkipLink';
 import { themeCss } from '../lib/uiTheme';
 import { BASE_URL, SITE, SITE_DESCRIPTION } from '../lib/site';
 import './globals.css';
@@ -45,7 +46,7 @@ const JSON_LD = JSON.stringify({
 });
 
 /** Runs before first paint so the saved theme, light/dark mode and effects setting never flash. */
-const BOOT = `(function(){var d=document.documentElement;try{var t=localStorage.getItem('sudoku-theme');if(t&&/^[a-z]+$/.test(t))d.dataset.theme=t;var m=localStorage.getItem('sudoku-mode')||'system';var dark=matchMedia('(prefers-color-scheme: dark)').matches;d.dataset.mode=m==='light'||m==='dark'?m:(dark?'dark':'light');var e=localStorage.getItem('sudoku-effects');d.dataset.effects=e?e:(matchMedia('(prefers-reduced-motion: reduce)').matches?'off':'on');}catch(x){d.dataset.mode=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';d.dataset.effects='on';}})();`;
+const BOOT = `(function(){var d=document.documentElement;try{var t=localStorage.getItem('sudoku-theme');if(t&&/^[a-z]+$/.test(t))d.dataset.theme=t;var m=localStorage.getItem('sudoku-mode')||'system';var dark=matchMedia('(prefers-color-scheme: dark)').matches;d.dataset.mode=m==='light'||m==='dark'?m:(dark?'dark':'light');var l=localStorage.getItem('sudoku-locale');if(l&&/^[a-z]{2}$/.test(l)){d.lang=l;d.dir=l==='ar'?'rtl':'ltr';}var e=localStorage.getItem('sudoku-effects');d.dataset.effects=e?e:(matchMedia('(prefers-reduced-motion: reduce)').matches?'off':'on');}catch(x){d.dataset.mode=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';d.dataset.effects='on';}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -56,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD }} />
             </head>
             <body>
-                <a className="skip-link" href="#main">Skip to main content</a>
+                <SkipLink />
                 <Providers>
                     {children}
                     <SiteFooter />

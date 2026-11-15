@@ -84,11 +84,40 @@ test('the app opens again without a connection after a first visit', async ({ pa
     await page.goto('/');
     await expect(page.getByRole('gridcell')).toHaveCount(81);
     await page.evaluate(() => navigator.serviceWorker.ready);
-    // The worker saves what the page loaded a moment after it settles.
-    await expect.poll(async () => page.evaluate(async () => (await caches.keys()).length && (await (await caches.open('sudoku-offline-v1')).keys()).length), { timeout: 20_000 }).toBeGreaterThan(5);
+    // The worker saves what the page loaded a moment after it settles: wait until every script the page used is in the cache.
+    await expect.poll(() => page.evaluate(async () => {
+        const urls = performance.getEntriesByType('resource').map((e) => e.name).filter((u) => u.startsWith(location.origin) && /\/_next\/static\/.*\.(js|css)/.test(u));
+        const cache = await caches.open('sudoku-offline-v1');
+        const hits = await Promise.all(urls.map((u) => cache.match(u)));
+        return urls.length > 3 && hits.every(Boolean);
+    }), { timeout: 30_000 }).toBe(true);
     await context.setOffline(true);
     await page.reload();
     await expect(page.getByRole('gridcell')).toHaveCount(81);
     await expect(page.getByRole('heading', { name: 'SUDOKU' })).toBeVisible();
     await context.setOffline(false);
+});
+
+test('the interface can be switched to Arabic: right to left, with the board still read left to right', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('summary', { hasText: 'Display settings' }).click();
+    await page.getByLabel('Language').selectOption('ar');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.getByRole('tab', { name: 'العب' })).toBeVisible();
+    await expect(page.getByRole('grid')).toHaveAttribute('dir', 'ltr');
+    await expect(page.getByRole('button', { name: 'تلميح', exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl'); // remembered
+    await expect(page.getByRole('tab', { name: 'العب' })).toBeVisible();
+});
+
+test.describe('first visit follows the browser language', () => {
+    test.use({ locale: 'ms-MY' });
+    test('Malay', async ({ page }) => {
+        await page.goto('/');
+        await expect(page.getByRole('tab', { name: 'Main' })).toBeVisible();
+        await expect(page.locator('html')).toHaveAttribute('lang', 'ms');
+        await expect(page.getByRole('button', { name: 'Permainan baharu', exact: true })).toBeVisible();
+    });
 });

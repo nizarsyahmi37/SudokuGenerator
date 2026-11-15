@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useConsent } from './ConsentProvider';
+import { useI18n } from './I18nProvider';
 
 type Placement = 'play' | 'book';
 
@@ -22,6 +23,7 @@ const SLOT: Record<Placement, string | undefined> = {
 export default function AdSlot({ placement }: { placement: Placement }) {
     const slot = SLOT[placement];
     const { adsAllowed } = useConsent();
+    const { t } = useI18n();
     const [state, setState] = useState<'pending' | 'filled' | 'unfilled'>('pending');
     const ins = useRef<HTMLModElement>(null);
 
@@ -49,8 +51,8 @@ export default function AdSlot({ placement }: { placement: Placement }) {
     if (!CLIENT || !slot || !adsAllowed || state === 'unfilled') return null;
 
     return (
-        <aside className="ad" data-state={state} aria-label="Advertisement">
-            <p className="ad-label" aria-hidden="true">Advertisement</p>
+        <aside className="ad" data-state={state} aria-label={t('ad.label')}>
+            <p className="ad-label" aria-hidden="true">{t('ad.label')}</p>
             <ins className="adsbygoogle" style={{ display: 'block' }} data-ad-client={CLIENT} data-ad-slot={slot} data-ad-format="auto" data-full-width-responsive="true" ref={ins} />
         </aside>
     );

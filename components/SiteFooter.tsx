@@ -1,17 +1,10 @@
-import Link from 'next/link';
-import { ADS_ENABLED, SITE } from '../lib/site';
-import PrivacyChoicesButton from './PrivacyChoicesButton';
+import { SITE } from '../lib/site';
+import FooterNav from './FooterNav';
 
 export default function SiteFooter() {
     return (
         <footer className="site-footer panel">
-            <nav aria-label="Legal and help">
-                <ul>
-                    <li><Link href="/privacy">Privacy and cookies</Link></li>
-                    <li><Link href="/accessibility">Accessibility</Link></li>
-                    {ADS_ENABLED && <li><PrivacyChoicesButton /></li>}
-                </ul>
-            </nav>
+            <FooterNav />
             <p>© {new Date().getFullYear()} {SITE.operator || SITE.name}</p>
         </footer>
     );

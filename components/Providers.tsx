@@ -7,6 +7,7 @@ import ConsentProvider from './ConsentProvider';
 import ConsentBanner from './ConsentBanner';
 import AdScript from './AdScript';
 import OfflineSupport from './OfflineSupport';
+import I18nProvider from './I18nProvider';
 
 function Backdrop() {
     const { effects } = useTheme();
@@ -16,6 +17,7 @@ function Backdrop() {
 export default function Providers({ children }: { children: ReactNode }) {
     return (
         <ThemeProvider>
+            <I18nProvider>
             <ConsentProvider>
                 <Backdrop />
                 <ConsentBanner />
@@ -23,6 +25,7 @@ export default function Providers({ children }: { children: ReactNode }) {
                 <AdScript />
                 <OfflineSupport />
             </ConsentProvider>
+            </I18nProvider>
         </ThemeProvider>
     );
 }

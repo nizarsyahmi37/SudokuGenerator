@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
-import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, findConflicts, type Level } from '../lib/sudoku';
+import { LEVELS, LEVEL_NAMES, findConflicts, type Level } from '../lib/sudoku';
 import { MISTAKE_LIMITS, dailyInfo, newGame, noteDigits, parseShare, reducer, restore, serialize, shareLink, type Action, type Game as GameState } from '../lib/game';
 import { TECHNIQUE_NAMES, cellName, explainNext, type Hint } from '../lib/logic';
 import { randomSeed } from '../lib/rng';
@@ -16,31 +16,28 @@ import BookBuilder from './BookBuilder';
 import FxLayer, { FxHandle } from './FxLayer';
 import SettingsPanel from './SettingsPanel';
 import { useTheme } from './ThemeProvider';
+import { useI18n } from './I18nProvider';
+import type { MsgKey, Vars } from '../lib/i18n';
 
 type Tab = 'play' | 'book';
-const TABS: Array<{ id: Tab; label: string }> = [
-    { id: 'play', label: 'Play' },
-    { id: 'book', label: 'Make a book' },
+const TABS: Array<{ id: Tab; key: 'tab.play' | 'tab.book' }> = [
+    { id: 'play', key: 'tab.play' },
+    { id: 'book', key: 'tab.book' },
 ];
 const SAVE_KEY = 'sudoku-game-v1';
 const LIMIT_KEY = 'sudoku-mistake-limit';
-const SHORTCUTS: Array<[string, string]> = [
-    ['Arrow keys', 'Move between cells'],
-    ['Home / End', 'First / last cell in the row'],
-    ['Page Up / Page Down', 'Top / bottom cell in the column'],
-    ['1 to 9', 'Place a digit, or a pencil note when notes are on'],
-    ['Backspace, Delete or 0', 'Erase the cell'],
-    ['N', 'Turn pencil notes on or off'],
-    ['F', 'Fill every empty cell with its possible digits'],
-    ['H', 'Ask for a hint'],
-    ['P', 'Pause or resume'],
-    ['Ctrl+Z / Ctrl+Y', 'Undo / redo (Cmd on a Mac)'],
-    ['?', 'Show or hide this list'],
-];
-type Msg = { text: string; kind: 'ok' | 'err' | '' };
+const SHORTCUTS: Array<[MsgKey, MsgKey]> = [
+    ['key.arrows', 'key.arrows.d'], ['key.homeEnd', 'key.homeEnd.d'], ['key.pages', 'key.pages.d'], ['key.digits', 'key.digits.d'],
+    ['key.erase', 'key.erase.d'], ['key.n', 'key.n.d'], ['key.f', 'key.f.d'], ['key.h', 'key.h.d'], ['key.p', 'key.p.d'],
+    ['key.undo', 'key.undo.d'], ['key.q', 'key.q.d'],
+];/** A status message is kept as a key and its values, so it is translated when shown and follows a change of language. */
+type Msg = { key: MsgKey | ''; vars?: Vars; kind: 'ok' | 'err' | '' };
+const NONE: Msg = { key: '', kind: '' };
+const say = (key: MsgKey, vars?: Vars, kind: Msg['kind'] = ''): Msg => ({ key, vars, kind });
 
 export default function Game() {
     const uid = useId();
+    const { t, tp } = useI18n();
     const [tab, setTab] = useState<Tab>('play');
     const [game, dispatch] = useReducer(reducer, null);
     const [selected, setSelected] = useState<number | null>(null);
@@ -48,7 +45,7 @@ export default function Game() {
     const [autoClear, setAutoClear] = useState(true);
     const [hint, setHint] = useState<Hint | null>(null);
     const [wrongCell, setWrongCell] = useState<number | null>(null);
-    const [message, setMessage] = useState<Msg>({ text: '', kind: '' });
+    const [message, setMessage] = useState<Msg>(NONE);
     const [stats, setStats] = useState<Stats>(emptyStats);
     const [format, setFormat] = useState<ExportFormat>('pdf');
     const [exporting, setExporting] = useState(false);
@@ -79,7 +76,7 @@ export default function Game() {
         const shared = parseShare(window.location.search);
         if (shared) {
             dispatch({ type: 'load', game: newGame(shared.seed, shared.level, 'shared', lim) });
-            setMessage({ text: `Loaded a shared puzzle: level ${shared.level}.`, kind: '' });
+            setMessage(say('msg.shared', { level: shared.level }));
             window.history.replaceState(null, '', window.location.pathname);
             return;
         }
@@ -87,7 +84,7 @@ export default function Game() {
         try { saved = restore(localStorage.getItem(SAVE_KEY)); } catch { /* storage unavailable */ }
         if (saved) {
             dispatch({ type: 'load', game: saved });
-            setMessage({ text: saved.won ? 'Welcome back. That puzzle was solved.' : 'Welcome back. Your game was restored.', kind: '' });
+            setMessage(say(saved.won ? 'msg.welcomeSolved' : 'msg.welcomeRestored'));
         } else {
             dispatch({ type: 'load', game: newGame(randomSeed(), 5, 'random', lim) });
         }
@@ -140,7 +137,7 @@ export default function Game() {
     const begin = useCallback((g: GameState) => {
         dispatch({ type: 'load', game: g });
         setSelected(null); setHint(null); setWrongCell(null); setNotesMode(false);
-        setMessage({ text: `New level ${g.level} puzzle ready.`, kind: '' });
+        setMessage(say('msg.newReady', { level: g.level }));
     }, []);
 
     const touch = useCallback(() => {
@@ -163,16 +160,16 @@ export default function Game() {
     }, [game?.board, conflicts]);
     const filledCount = game ? game.board.filter(Boolean).length : 0;
     const full = !!game && !game.revealed && game.board.every(Boolean);
-    const autoMessage: Msg | null = game?.lost ? { text: `Game over: ${game.mistakes} mistakes. Start a new game, or press Solve to see the answer.`, kind: 'err' } : full ? (game.won ? { text: 'Solved! Well done.', kind: 'ok' } : { text: 'The board is full, but something is wrong.', kind: 'err' }) : null;
+    const autoMessage: Msg | null = game?.lost ? say('msg.gameOver', { n: game.mistakes }, 'err') : full ? (game.won ? say('msg.solved', undefined, 'ok') : say('msg.fullWrong', undefined, 'err')) : null;
     const shown = autoMessage ?? message;
 
     const place = (digit: number) => {
-        if (!game || selected === null) { setMessage({ text: 'Select a cell first.', kind: '' }); return; }
-        if (game.puzzle[selected]) { setMessage({ text: 'That cell is a clue and cannot be changed.', kind: '' }); return; }
+        if (!game || selected === null) { setMessage(say('msg.selectCell')); return; }
+        if (game.puzzle[selected]) { setMessage(say('msg.clue')); return; }
         if (!notesMode && digit && remaining[digit] === 0 && game.board[selected] !== digit) return;
         const wrong = !notesMode && digit !== game.solution[selected];
         act({ type: 'input', cell: selected, digit, notes: notesMode, autoClear });
-        setMessage({ text: '', kind: '' });
+        setMessage(NONE);
         if (!notesMode) fxAt([selected], wrong ? 0xf43f5e : fxcRef.current.accents[0], wrong ? 10 : 14);
     };
     const erase = () => { if (game && selected !== null) act({ type: 'erase', cell: selected }); };
@@ -211,10 +208,10 @@ export default function Game() {
 
     const check = () => {
         if (!game) return;
-        if (conflicts.size) return setMessage({ text: 'Some numbers conflict with others in their row, column or box.', kind: 'err' });
-        if (game.won) return setMessage({ text: 'Solved! Well done.', kind: 'ok' });
+        if (conflicts.size) return setMessage(say('msg.conflicts', undefined, 'err'));
+        if (game.won) return setMessage(say('msg.solved', undefined, 'ok'));
         const wrong = game.board.some((v, i) => v && v !== game.solution[i]);
-        setMessage(wrong ? { text: 'Some numbers are wrong.', kind: 'err' } : { text: 'So far so good. Keep going.', kind: 'ok' });
+        setMessage(wrong ? say('msg.someWrong', undefined, 'err') : say('msg.soFar', undefined, 'ok'));
     };
 
     const askHint = () => {
@@ -224,70 +221,70 @@ export default function Game() {
         const h = explainNext(game.board, game.solution);
         if ('wrong' in h) {
             setHint(null); setWrongCell(h.wrong); setSelected(h.wrong);
-            setMessage({ text: `Check ${cellName(h.wrong)} first: the digit there is not right. Erase it or undo.`, kind: 'err' });
+            setMessage(say('msg.checkCell', { cell: cellName(h.wrong) }, 'err'));
         } else {
             setWrongCell(null); setHint(h); setSelected(h.place.cell);
-            setMessage({ text: `Hint: ${h.text}`, kind: '' });
+            setMessage(say('msg.hint', { text: h.text }));
         }
     };
     const applyHint = () => {
         if (!hint || !game) return;
         act({ type: 'input', cell: hint.place.cell, digit: hint.place.digit, notes: false, autoClear });
         fxAt([hint.place.cell], fxcRef.current.accents[1], 16);
-        setMessage({ text: `Placed ${hint.place.digit} in ${cellName(hint.place.cell)}.`, kind: '' });
+        setMessage(say('msg.placed', { digit: hint.place.digit, cell: cellName(hint.place.cell) }));
     };
 
     const solve = () => {
         if (!game) return;
         act({ type: 'solve' });
-        setMessage({ text: 'Solution shown.', kind: '' });
+        setMessage(say('msg.solution'));
     };
 
     const newRandom = (level: Level) => begin(newGame(randomSeed(), level, 'random', limit));
     const chooseLimit = (n: number) => { setLimit(n); try { localStorage.setItem(LIMIT_KEY, String(n)); } catch { /* storage unavailable */ } };
-    const fillNotes = () => { if (game && !game.won && !game.lost && !game.revealed) { act({ type: 'fillNotes' }); setNotesMode(true); setMessage({ text: 'Filled in every possible digit as a note. Notes are on.', kind: '' }); } };
+    const fillNotes = () => { if (game && !game.won && !game.lost && !game.revealed) { act({ type: 'fillNotes' }); setNotesMode(true); setMessage(say('msg.notesFilled')); } };
     const playDaily = () => {
-        if (game && game.kind === 'daily' && game.seed === today.seed) { setMessage({ text: "You are already on today's puzzle.", kind: '' }); return; }
+        if (game && game.kind === 'daily' && game.seed === today.seed) { setMessage(say('msg.alreadyDaily')); return; }
         begin(newGame(today.seed, today.level, 'daily', limit));
-        setMessage({ text: `Today's puzzle: level ${today.level}. Everyone gets the same one.`, kind: '' });
+        setMessage(say('msg.daily', { level: today.level }));
     };
     const share = async () => {
         if (!game) return;
         const url = shareLink(window.location.origin, game);
         try {
-            if (navigator.share) await navigator.share({ title: 'Sudoku puzzle', url });
-            else { await navigator.clipboard.writeText(url); setMessage({ text: 'Link copied. Anyone who opens it gets this exact puzzle.', kind: 'ok' }); }
+            if (navigator.share) await navigator.share({ title: t('msg.shareTitle'), url });
+            else { await navigator.clipboard.writeText(url); setMessage(say('msg.linkCopied', undefined, 'ok')); }
         } catch {
-            setMessage({ text: `Copy this link to share the puzzle: ${url}`, kind: '' });
+            setMessage(say('msg.copyLink', { url }));
         }
     };
     const exportProgress = () => {
         downloadBlob(new Blob([JSON.stringify(makeBackup(game, stats), null, 2)], { type: 'application/json' }), backupFileName());
-        setMessage({ text: 'Progress saved to a file. Keep it somewhere safe, or open it on another device.', kind: 'ok' });
+        setMessage(say('msg.progressSaved', undefined, 'ok'));
     };
     const importProgress = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = '';
         if (!file) return;
         const parsed = parseBackup(file.size > 512 * 1024 ? 'x'.repeat(512 * 1024 + 1) : await file.text());
-        if ('error' in parsed) { setMessage({ text: parsed.error, kind: 'err' }); return; }
+        if ('error' in parsed) { setMessage(say('msg.importFailed', { error: parsed.error }, 'err')); return; }
         const replacing = parsed.game && game?.started && !game.won && !game.revealed;
-        if (replacing && !window.confirm('This replaces the game you are playing with the one in the file. Continue?')) return;
+        if (replacing && !window.confirm(t('confirm.import'))) return;
         const merged = mergeStats(stats, parsed.stats);
         setStats(merged); saveStats(merged);
         if (parsed.game) { dispatch({ type: 'load', game: parsed.game }); setSelected(null); setHint(null); setWrongCell(null); }
-        setMessage({ text: parsed.game ? 'Progress imported: the saved game is open and your statistics are combined.' : 'Statistics imported and combined with yours.', kind: 'ok' });
+        setMessage(say(parsed.game ? 'msg.imported' : 'msg.importedStats', undefined, 'ok'));
     };
-    const resetStats = () => { if (window.confirm('Reset all statistics? This cannot be undone.')) { const s = emptyStats(); setStats(s); saveStats(s); } };
+    const resetStats = () => { if (window.confirm(t('confirm.resetStats'))) { const s = emptyStats(); setStats(s); saveStats(s); } };
 
     const doExport = async (kind: ExportKind) => {
         if (!game) return;
         setExporting(true);
         try {
             await exportBoard({ puzzle: game.puzzle, solution: game.solution, level: game.level, levelName: LEVEL_NAMES[game.level] }, kind, format, { theme, mode, plain: plainExport });
-            setMessage({ text: `Exported the ${kind} board as ${format.toUpperCase()}.`, kind: 'ok' });
+            setMessage(say('msg.exported', { kind: t(`export.kind.${kind}` as MsgKey), format: format.toUpperCase() }, 'ok'));
         } catch (e) {
-            setMessage({ text: 'Export failed: ' + (e as Error).message, kind: 'err' });
+            setMessage(say('msg.exportFailed', { error: (e as Error).message }, 'err'));
         } finally {
             setExporting(false);
         }
@@ -308,8 +305,10 @@ export default function Game() {
     const hintCells = new Set(hint?.cells ?? []);
     const lcStyle = (l: Level) => { const c = levelColor(l); return { ['--lc' as string]: css(c), ['--lc-text' as string]: css(readableOn(c)) }; };
     const streak = streaks(stats, today.key);
-    const t = totals(stats);
+    const tot = totals(stats);
     const dailyDone = stats.daily[today.key] !== undefined;
+    const levelName = (l: number) => t(`level.${l}.name` as MsgKey);
+    const levelTech = (l: number) => t(`level.${l}.tech` as MsgKey);
     // The level a puzzle really graded as, which can be a notch below the one asked for.
     const shownLevel = (game ? Math.max(1, Math.min(10, game.grade)) : 5) as Level;
     const clock = formatTime(game?.seconds ?? 0);
@@ -320,14 +319,14 @@ export default function Game() {
             {effects && <FxLayer ref={fx} />}
             <header className="hero panel">
                 <h1>SUDOKU</h1>
-                <div role="tablist" aria-label="Sections" className="tabs" onKeyDown={onTabKey}>
+                <div role="tablist" aria-label={t('tabs.label')} className="tabs" onKeyDown={onTabKey}>
                     {TABS.map((tb) => (
                         <button key={tb.id} id={`${uid}-tab-${tb.id}`} role="tab" type="button" aria-selected={tab === tb.id} aria-controls={`${uid}-panel-${tb.id}`}
-                            tabIndex={tab === tb.id ? 0 : -1} className={tab === tb.id ? 'on' : ''} onClick={() => setTab(tb.id)}>{tb.label}</button>
+                            tabIndex={tab === tb.id ? 0 : -1} className={tab === tb.id ? 'on' : ''} onClick={() => setTab(tb.id)}>{t(tb.key)}</button>
                     ))}
                 </div>
                 <details className="settings-wrap">
-                    <summary>Display settings</summary>
+                    <summary>{t('settings.summary')}</summary>
                     <SettingsPanel />
                 </details>
             </header>
@@ -335,18 +334,18 @@ export default function Game() {
             <main id="main" tabIndex={-1}>
                 <div id={`${uid}-panel-play`} role="tabpanel" aria-labelledby={`${uid}-tab-play`} hidden={tab !== 'play'} className="play">
                     <section className="panel board-panel" aria-labelledby={`${uid}-h-board`}>
-                        <h2 id={`${uid}-h-board`} className="sr-only">Puzzle board</h2>
+                        <h2 id={`${uid}-h-board`} className="sr-only">{t('board.heading')}</h2>
                         <div className="statbar">
-                            <span className="lvl-pill" style={lcStyle(shownLevel)}>Level {shownLevel} · {LEVEL_NAMES[shownLevel]}</span>
-                            <span className="stat" role="timer" aria-label={`Elapsed time ${clock}${game?.paused ? ', paused' : ''}`}>{clock}</span>
-                            <button type="button" className="pause-btn" aria-pressed={!!game?.paused} disabled={!canPause && !game?.paused} onClick={() => act({ type: game?.paused ? 'resume' : 'pause' })}>{game?.paused ? 'Resume' : 'Pause'}</button>
+                            <span className="lvl-pill" style={lcStyle(shownLevel)}>{t('board.pill', { level: shownLevel, name: levelName(shownLevel) })}</span>
+                            <span className="stat" role="timer" aria-label={t(game?.paused ? 'board.timePaused' : 'board.time', { time: clock })}>{clock}</span>
+                            <button type="button" className="pause-btn" aria-pressed={!!game?.paused} disabled={!canPause && !game?.paused} onClick={() => act({ type: game?.paused ? 'resume' : 'pause' })}>{t(game?.paused ? 'board.resume' : 'board.pause')}</button>
                             <span className="stat">{filledCount}/81</span>
                         </div>
-                        <progress className="progress" max={81} value={filledCount} aria-label="Cells filled">{filledCount} of 81</progress>
-                        {game && <p className="code">{game.kind === 'daily' ? 'Daily puzzle' : game.kind === 'shared' ? 'Shared puzzle' : 'Puzzle'} <b>{game.seed}</b> · {game.limit ? `${game.mistakes} of ${game.limit} mistakes` : `${game.mistakes} mistake${game.mistakes === 1 ? '' : 's'}`} · {game.hintsUsed} hint{game.hintsUsed === 1 ? '' : 's'}</p>}
+                        <progress className="progress" max={81} value={filledCount} aria-label={t('board.progress')}>{t('board.progressText', { n: filledCount })}</progress>
+                        {game && <p className="code">{t(game.kind === 'daily' ? 'board.kind.daily' : game.kind === 'shared' ? 'board.kind.shared' : 'board.kind.random')} <b dir="ltr">{game.seed}</b> · {game.limit ? t('board.mistakesOf', { n: game.mistakes, limit: game.limit }) : tp('board.mistakes', game.mistakes)} · {tp('board.hints', game.hintsUsed)}</p>}
 
                         <div className="grid-wrap">
-                        <div className={`grid${game?.won ? ' won' : ''}${game?.paused ? ' paused' : ''}`} inert={!!game?.paused} role="grid" aria-label="Sudoku board. Use arrow keys to move and number keys to fill. Press N to switch pencil notes." onKeyDown={onGridKey}>
+                        <div className={`grid${game?.won ? ' won' : ''}${game?.paused ? ' paused' : ''}`} inert={!!game?.paused} role="grid" dir="ltr" aria-label={t('board.label')} onKeyDown={onGridKey}>
                             {Array.from({ length: 9 }, (_, r) => (
                                 <div className="row" role="row" key={r}>
                                     {Array.from({ length: 9 }, (_, c) => {
@@ -362,7 +361,7 @@ export default function Game() {
                                         const cls = ['cell', given && 'given', sameRegion && 'peer', selectedValue && v === selectedValue && 'same',
                                             c % 3 === 2 && c < 8 && 'box-r', r % 3 === 2 && r < 8 && 'box-b', bad && 'conflict',
                                             hintCells.has(i) && 'hint', hint?.place.cell === i && 'hint-target', wrongCell === i && 'wrong'].filter(Boolean).join(' ');
-                                        const label = `Row ${r + 1}, column ${c + 1}, ${v ? v : 'empty'}${given ? ', clue' : ''}${!v && notes ? `, notes ${noteDigits(notes).join(' ')}` : ''}${bad ? ', conflicts with another number' : ''}${hintCells.has(i) ? ', part of the hint' : ''}${wrongCell === i ? ', this digit is wrong' : ''}`;
+                                        const label = `${t('cell.rc', { r: r + 1, c: c + 1, value: v ? v : t('cell.empty') })}${given ? t('cell.clue') : ''}${!v && notes ? t('cell.notes', { list: noteDigits(notes).join(' ') }) : ''}${bad ? t('cell.conflict') : ''}${hintCells.has(i) ? t('cell.hintPart') : ''}${wrongCell === i ? t('cell.wrong') : ''}`;
                                         return (
                                             <div key={i} ref={(el) => { cellRefs.current[i] = el; }} role="gridcell" tabIndex={focusIdx === i ? 0 : -1}
                                                 aria-selected={selected === i} className={cls} aria-label={label}
@@ -376,101 +375,101 @@ export default function Game() {
                             ))}
                         </div>
                         {game?.paused && (
-                            <div className="pause-cover" role="region" aria-label="Game paused">
-                                <p><strong>Paused</strong></p>
-                                <p>The clock has stopped and the board is hidden.</p>
-                                <button ref={resumeRef} type="button" className="primary" onClick={resume}>Resume</button>
+                            <div className="pause-cover" role="region" aria-label={t('pause.region')}>
+                                <p><strong>{t('pause.title')}</strong></p>
+                                <p>{t('pause.text')}</p>
+                                <button ref={resumeRef} type="button" className="primary" onClick={resume}>{t('board.resume')}</button>
                             </div>
                         )}
                         </div>
                         <div className={`status ${shown.kind}`} role="status" aria-live="polite">
-                            {shown.kind === 'ok' && <span aria-hidden="true">✓ </span>}{shown.kind === 'err' && <span aria-hidden="true">✕ </span>}{shown.text}
+                            {shown.kind === 'ok' && <span aria-hidden="true">✓ </span>}{shown.kind === 'err' && <span aria-hidden="true">✕ </span>}{shown.key ? t(shown.key, shown.vars) : ''}
                         </div>
                         {hint && (
                             <section className="hint-card" aria-labelledby={`${uid}-hint`}>
-                                <h3 id={`${uid}-hint`}>{hint.technique ? `Hint: ${TECHNIQUE_NAMES[hint.technique]}` : 'Hint'}</h3>
+                                <h3 id={`${uid}-hint`}>{hint.technique ? t('hint.titleTech', { technique: TECHNIQUE_NAMES[hint.technique] }) : t('hint.title')}</h3>
                                 <p>{hint.text}</p>
                                 <div className="tools two">
-                                    <button type="button" onClick={applyHint}>Place {hint.place.digit} in {cellName(hint.place.cell)}</button>
-                                    <button type="button" onClick={() => setHint(null)}>Dismiss</button>
+                                    <button type="button" onClick={applyHint}>{t('hint.place', { digit: hint.place.digit, cell: cellName(hint.place.cell) })}</button>
+                                    <button type="button" onClick={() => setHint(null)}>{t('hint.dismiss')}</button>
                                 </div>
                             </section>
                         )}
                     </section>
 
-                    <aside className="side" aria-label="Game controls">
+                    <aside className="side" aria-label={t('controls.label')}>
                         <section className="panel" aria-labelledby={`${uid}-h-ctl`}>
-                            <h2 id={`${uid}-h-ctl`} className="panel-title">New game</h2>
-                            <div role="group" aria-label="Level. Choosing one starts a new game." className="level-chips">
+                            <h2 id={`${uid}-h-ctl`} className="panel-title">{t('new.title')}</h2>
+                            <div role="group" aria-label={t('new.levelGroup')} className="level-chips">
                                 {LEVELS.map((l) => (
                                     <button key={l} type="button" className={l === game?.level ? 'lchip on' : 'lchip'} style={lcStyle(l)} aria-pressed={l === game?.level}
-                                        aria-label={`Level ${l}, ${LEVEL_NAMES[l]}, ${LEVEL_TECHNIQUES[l]}. Starts a new game.`} onClick={() => newRandom(l)}>{l}</button>
+                                        aria-label={t('new.levelChip', { level: l, name: levelName(l), tech: levelTech(l) })} onClick={() => newRandom(l)}>{l}</button>
                                 ))}
                             </div>
-                            <p className="hint">{game ? `Level ${game.level} needs: ${LEVEL_TECHNIQUES[game.level]}.${game.grade !== game.level ? ` You asked for level ${game.level}, and this puzzle graded as level ${game.grade}, so that is what it counts as.` : ''}` : ''}</p>
+                            <p className="hint">{game ? `${t('new.needs', { level: game.level, tech: levelTech(game.level) })}${game.grade !== game.level ? t('new.graded', { level: game.level, grade: game.grade }) : ''}` : ''}</p>
                             <div className="toolbar">
-                                <button type="button" className="primary" onClick={() => newRandom((game?.level ?? 5) as Level)}>New game</button>
+                                <button type="button" className="primary" onClick={() => newRandom((game?.level ?? 5) as Level)}>{t('new.button')}</button>
                             </div>
                             <div className="field-row">
-                                <label htmlFor={`${uid}-limit`}>Mistake limit</label>
+                                <label htmlFor={`${uid}-limit`}>{t('new.limit')}</label>
                                 <select id={`${uid}-limit`} value={limit} onChange={(e) => chooseLimit(Number(e.target.value))}>
-                                    {MISTAKE_LIMITS.map((n) => <option key={n} value={n}>{n ? `${n} mistakes` : 'No limit'}</option>)}
+                                    {MISTAKE_LIMITS.map((n) => <option key={n} value={n}>{n ? t('new.limitN', { n }) : t('new.limitNone')}</option>)}
                                 </select>
                             </div>
-                            <p className="hint">{limit ? `A game is lost after ${limit} wrong digits. Applies to the next new game.` : 'Unlimited mistakes. Applies to the next new game.'}</p>
+                            <p className="hint">{limit ? t('new.limitHintOn', { n: limit }) : t('new.limitHintOff')}</p>
                             <div className="tools two">
-                                <button type="button" onClick={playDaily}>Daily puzzle{dailyDone ? ' ✓' : ''}</button>
-                                <button type="button" onClick={share}>Share puzzle</button>
+                                <button type="button" onClick={playDaily}>{t('new.daily')}{dailyDone ? ' ✓' : ''}</button>
+                                <button type="button" onClick={share}>{t('new.share')}</button>
                             </div>
-                            <p className="hint">Today&apos;s puzzle is level {today.level}.{dailyDone ? ` You solved it in ${formatTime(stats.daily[today.key])}.` : ''}</p>
+                            <p className="hint">{t('new.todayLevel', { level: today.level })}{dailyDone ? t('new.solvedIn', { time: formatTime(stats.daily[today.key]) }) : ''}</p>
 
-                            <h3 className="panel-title">Numbers</h3>
-                            <div className="pad" role="group" aria-label={notesMode ? 'Number pad, pencil notes on' : 'Number pad'}>
+                            <h3 className="panel-title">{t('pad.title')}</h3>
+                            <div className="pad" dir="ltr" role="group" aria-label={t(notesMode ? 'pad.groupNotes' : 'pad.group')}>
                                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                                     <button key={n} type="button" aria-disabled={!notesMode && remaining[n] === 0} className={!notesMode && remaining[n] === 0 ? 'is-disabled' : ''} data-left={remaining[n]}
-                                        aria-label={!notesMode && remaining[n] === 0 ? `${n}, all placed` : `${n}, ${remaining[n]} left to place`} onClick={() => place(n)}>
+                                        aria-label={!notesMode && remaining[n] === 0 ? t('pad.allPlaced', { n }) : t('pad.left', { n, left: remaining[n] })} onClick={() => place(n)}>
                                         {n}
                                     </button>
                                 ))}
-                                <button type="button" aria-label="Erase" onClick={erase}>⌫</button>
+                                <button type="button" aria-label={t('pad.erase')} onClick={erase}>⌫</button>
                             </div>
                             <div className="tools four">
-                                <button type="button" onClick={() => act({ type: 'undo' })} disabled={!game?.past.length}>Undo</button>
-                                <button type="button" onClick={() => act({ type: 'redo' })} disabled={!game?.future.length}>Redo</button>
-                                <button type="button" aria-pressed={notesMode} className={notesMode ? 'on' : ''} onClick={() => setNotesMode((v) => !v)}>Notes {notesMode ? 'on' : 'off'}</button>
-                                <button type="button" onClick={erase}>Erase</button>
+                                <button type="button" onClick={() => act({ type: 'undo' })} disabled={!game?.past.length}>{t('tool.undo')}</button>
+                                <button type="button" onClick={() => act({ type: 'redo' })} disabled={!game?.future.length}>{t('tool.redo')}</button>
+                                <button type="button" aria-pressed={notesMode} className={notesMode ? 'on' : ''} onClick={() => setNotesMode((v) => !v)}>{t(notesMode ? 'tool.notesOn' : 'tool.notesOff')}</button>
+                                <button type="button" onClick={erase}>{t('tool.erase')}</button>
                             </div>
                             <div className="tools">
-                                <button type="button" onClick={check}>Check</button>
-                                <button type="button" onClick={askHint}>Hint</button>
-                                <button type="button" onClick={fillNotes}>Fill notes</button>
+                                <button type="button" onClick={check}>{t('tool.check')}</button>
+                                <button type="button" onClick={askHint}>{t('tool.hint')}</button>
+                                <button type="button" onClick={fillNotes}>{t('tool.fill')}</button>
                             </div>
                             <div className="tools two">
-                                <button type="button" onClick={solve}>Solve</button>
-                                <button type="button" aria-expanded={helpOpen} aria-controls={`${uid}-keys`} onClick={() => setHelpOpen((v) => !v)}>Keyboard shortcuts</button>
+                                <button type="button" onClick={solve}>{t('tool.solve')}</button>
+                                <button type="button" aria-expanded={helpOpen} aria-controls={`${uid}-keys`} onClick={() => setHelpOpen((v) => !v)}>{t('tool.keys')}</button>
                             </div>
                             {helpOpen && (
                                 <div id={`${uid}-keys`} className="shortcuts">
                                     <table>
-                                        <caption className="sr-only">Keyboard shortcuts</caption>
-                                        <tbody>{SHORTCUTS.map(([k, d]) => <tr key={k}><th scope="row"><kbd>{k}</kbd></th><td>{d}</td></tr>)}</tbody>
+                                        <caption className="sr-only">{t('tool.keys')}</caption>
+                                        <tbody>{SHORTCUTS.map(([k, d]) => <tr key={k}><th scope="row"><kbd dir="ltr">{t(k)}</kbd></th><td>{t(d)}</td></tr>)}</tbody>
                                     </table>
                                 </div>
                             )}
                             <label className="check" style={{ marginTop: 12 }}>
                                 <input type="checkbox" checked={autoClear} onChange={(e) => setAutoClear(e.target.checked)} />
-                                <span>Remove notes automatically</span>
+                                <span>{t('tool.autoClear')}</span>
                             </label>
-                            <p className="hint">Select a cell, then type 1–9. Press ? for all the keyboard shortcuts. The small number on each key is how many are still to place.</p>
+                            <p className="hint">{t('tool.help')}</p>
                         </section>
 
                         <section className="panel" aria-labelledby={`${uid}-h-stats`}>
                             <details>
-                                <summary id={`${uid}-h-stats`} className="panel-title">Your statistics</summary>
-                                <p className="hint">Saved only in this browser. {t.won} of {t.played} started games solved. Daily streak {streak.current} {streak.current === 1 ? 'day' : 'days'} (best {streak.best}).</p>
+                                <summary id={`${uid}-h-stats`} className="panel-title">{t('stats.title')}</summary>
+                                <p className="hint">Saved only in this browser. {t('stats.summary', { won: tot.won, played: tot.played, current: streak.current, days: tp('stats.day', streak.current, { n: streak.current }), best: streak.best })}</p>
                                 <table className="stats">
-                                    <caption className="sr-only">Statistics by level</caption>
-                                    <thead><tr><th scope="col">Level</th><th scope="col">Solved</th><th scope="col">Best</th><th scope="col">Average</th></tr></thead>
+                                    <caption className="sr-only">{t('stats.caption')}</caption>
+                                    <thead><tr><th scope="col">{t('stats.level')}</th><th scope="col">{t('stats.solved')}</th><th scope="col">{t('stats.best')}</th><th scope="col">{t('stats.average')}</th></tr></thead>
                                     <tbody>
                                         {LEVELS.map((l) => (
                                             <tr key={l}>
@@ -482,27 +481,27 @@ export default function Game() {
                                         ))}
                                     </tbody>
                                 </table>
-                                <button type="button" className="link-button" onClick={resetStats}>Reset statistics</button>
+                                <button type="button" className="link-button" onClick={resetStats}>{t('stats.reset')}</button>
                             </details>
                         </section>
 
                         <section className="panel" aria-labelledby={`${uid}-h-bak`}>
-                            <h2 id={`${uid}-h-bak`} className="panel-title">Move your progress</h2>
-                            <p className="hint">Your game and statistics live only in this browser. Save them to a file to keep a copy or to continue on another device.</p>
+                            <h2 id={`${uid}-h-bak`} className="panel-title">{t('backup.title')}</h2>
+                            <p className="hint">{t('backup.text')}</p>
                             <div className="tools two">
-                                <button type="button" onClick={exportProgress}>Save to file</button>
+                                <button type="button" onClick={exportProgress}>{t('backup.save')}</button>
                                 <label className="file-btn">
-                                    <span>Open a file</span>
+                                    <span>{t('backup.open')}</span>
                                     <input type="file" accept="application/json,.json" className="sr-only" onChange={importProgress} />
                                 </label>
                             </div>
-                            <p className="hint">Opening a file adds its statistics to yours and opens its saved game.</p>
+                            <p className="hint">{t('backup.note')}</p>
                         </section>
 
                         <section className="panel" aria-labelledby={`${uid}-h-exp`}>
-                            <h2 id={`${uid}-h-exp`} className="panel-title">Save or print this puzzle</h2>
+                            <h2 id={`${uid}-h-exp`} className="panel-title">{t('export.title')}</h2>
                             <fieldset className="plain">
-                                <legend className="sr-only">File format</legend>
+                                <legend className="sr-only">{t('export.format')}</legend>
                                 <div className="chips">
                                     {(['pdf', 'png', 'jpg'] as ExportFormat[]).map((f) => (
                                         <label key={f} className="chip">
@@ -514,12 +513,12 @@ export default function Game() {
                             </fieldset>
                             <label className="check" style={{ marginTop: 12 }}>
                                 <input type="checkbox" checked={plainExport} onChange={(e) => setPlainExport(e.target.checked)} />
-                                <span>Plain black and white, for home printers</span>
+                                <span>{t('export.plain')}</span>
                             </label>
                             <div className="tools">
-                                <button type="button" disabled={exporting} onClick={() => doExport('blank')}>Blank</button>
-                                <button type="button" disabled={exporting} onClick={() => doExport('solved')}>Solved</button>
-                                <button type="button" disabled={exporting} onClick={() => doExport('both')}>Both</button>
+                                <button type="button" disabled={exporting} onClick={() => doExport('blank')}>{t('export.blank')}</button>
+                                <button type="button" disabled={exporting} onClick={() => doExport('solved')}>{t('export.solved')}</button>
+                                <button type="button" disabled={exporting} onClick={() => doExport('both')}>{t('export.both')}</button>
                             </div>
                         </section>
                         <AdSlot placement="play" />

@@ -96,7 +96,7 @@ test('solving a puzzle shows the win, records statistics and stops the clock', a
     }
     await expect(page.locator('.board-panel [role=status]')).toContainText('Solved! Well done.');
     await page.getByText('Your statistics').click();
-    await expect(page.locator('details p.hint').first()).toContainText('1 of 1 started games solved');
+    await expect(page.locator('details', { has: page.locator('summary', { hasText: 'Your statistics' }) }).locator('p.hint').first()).toContainText('1 of 1 started games solved');
     const t = await timer(page).textContent();
     await page.waitForTimeout(2200);
     await expect(timer(page)).toHaveText(t!);
@@ -106,7 +106,7 @@ test('statistics can be reset', async ({ page }) => {
     await page.getByText('Your statistics').click();
     page.once('dialog', (d) => d.accept());
     await page.getByRole('button', { name: 'Reset statistics' }).click();
-    await expect(page.locator('details p.hint').first()).toContainText('0 of 0 started games solved');
+    await expect(page.locator('details', { has: page.locator('summary', { hasText: 'Your statistics' }) }).locator('p.hint').first()).toContainText('0 of 0 started games solved');
 });
 
 test('level choices describe the technique they need', async ({ page }) => {
