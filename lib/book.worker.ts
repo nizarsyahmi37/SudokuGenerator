@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { buildBook } from './pdf/book';
 import { fetchFonts } from './pdf/kit';
+import { scriptsIn } from './pdf/scripts';
 import type { BookConfig, BookResult } from './bookConfig';
 
 export interface WorkerRequest { id: number; cfg: BookConfig; fontsBase: string }
@@ -14,7 +15,8 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     const { id, cfg, fontsBase } = e.data;
     const post = (m: WorkerMessage, transfer: Transferable[] = []) => (self as unknown as DedicatedWorkerGlobalScope).postMessage(m, transfer);
     try {
-        const fonts = await fetchFonts(fontsBase);
+        // Only fetch the fonts for other alphabets when the book's own text uses them.
+        const fonts = await fetchFonts(fontsBase, scriptsIn(cfg.title, cfg.author, cfg.cover.subtitle, cfg.copyright.holder, cfg.backCover));
         const result = await buildBook(cfg, fonts, (done, total, phase) => post({ id, type: 'progress', done, total, phase }));
         post({ id, type: 'done', result }, [result.interior.buffer, ...(result.cover ? [result.cover.buffer] : [])]);
     } catch (err) {

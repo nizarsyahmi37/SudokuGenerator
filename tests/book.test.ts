@@ -4,7 +4,8 @@ import { buildBook, coverTheme } from '../lib/pdf/book';
 import { contrast } from '../lib/palette';
 import { getTheme } from '../lib/themes';
 import { DEFAULT_COVER, planPages } from '../lib/bookConfig';
-import { loadFonts, makePng, pageTexts, smallBook } from './helpers';
+import { scriptsIn, splitRuns, unsupportedIn } from '../lib/pdf/scripts';
+import { loadFonts, loadFontsWithScripts, makePng, pageTexts, smallBook } from './helpers';
 
 const fonts = loadFonts();
 
@@ -111,5 +112,21 @@ describe('book generator', () => {
         const without = await buildBook(smallBook({ print, barcodeArea: false }), fonts);
         expect((withBox.cover as Uint8Array).length).toBeGreaterThan((without.cover as Uint8Array).length - 1);
         expect(without.cover).toBeDefined();
+    });
+
+    it('sets text in Cyrillic, Greek, Vietnamese and Latin Extended', async () => {
+        const title = 'Судоку · Σούντοκου · Việt Nam · Łódź';
+        const { interior } = await buildBook(smallBook({ title, author: 'Žofia Ñandú' }), loadFontsWithScripts());
+        // Each alphabet is its own text run, so the extractor may put spaces between runs; compare without them.
+        const first = (await pageTexts(interior))[0].replace(/\s+/g, '');
+        for (const word of ['Судоку', 'Σούντοκου', 'Việt', 'Łódź', 'Žofia', 'Ñandú']) expect(first).toContain(word);
+        expect(scriptsIn(title).sort()).toEqual(['cyrillic', 'greek', 'latin-ext', 'vietnamese']);
+        expect(scriptsIn('Plain English')).toEqual([]);
+    });
+
+    it('never prints empty boxes: uncovered alphabets become a question mark and are reported', () => {
+        expect(splitRuns('日本').map((r) => r.text).join('')).toBe('??');
+        expect(unsupportedIn('Sudoku 数独', 'عربى')).toEqual(['Arabic', 'Chinese, Japanese or Korean']);
+        expect(unsupportedIn('Ünïcödé Ñ')).toEqual([]);
     });
 });

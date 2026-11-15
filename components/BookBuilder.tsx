@@ -9,6 +9,7 @@ import { cleanSeed, decodeBookCode, encodeBookCode } from '../lib/bookCode';
 import { randomSeed } from '../lib/rng';
 import { THEME_KEYS, getTheme, themeLabel, type Mode } from '../lib/themes';
 import { css } from '../lib/palette';
+import { unsupportedIn } from '../lib/pdf/scripts';
 import BookPreview from './BookPreview';
 
 const MAX_TOTAL = 500;
@@ -85,6 +86,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     }
 
     const printing = output === 'print';
+    const unsupported = unsupportedIn(title, author, coverSubtitle, holder, backCover);
 
     /** Reads a picture for the cover. PNG and JPEG only, up to 5 MB, and it stays on this device. */
     const pickImage = async (file: File | undefined) => {
@@ -298,6 +300,11 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} autoComplete="off" />
                     </label>
                 </div>
+                {unsupported.length > 0 && (
+                    <p className="status err" role="status">
+                        The PDF fonts do not cover {unsupported.join(', ')} yet, so those characters will print as “?”. Latin, Latin Extended, Vietnamese, Cyrillic and Greek are supported.
+                    </p>
+                )}
                 <fieldset className="plain">
                     <legend className="field-label">Paper</legend>
                     <div className="chips">

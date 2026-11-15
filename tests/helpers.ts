@@ -1,12 +1,21 @@
 import { readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { join } from 'node:path';
-import { FONT_FILES, type FontSet } from '../lib/pdf/kit';
+import { FONT_FILES, extraFile, type FontKey, type FontSet } from '../lib/pdf/kit';
+import { EXTRA_SCRIPTS } from '../lib/pdf/scripts';
 import { DEFAULT_COVER, type BookConfig } from '../lib/bookConfig';
 
 export function loadFonts(): FontSet {
     const fonts = {} as FontSet;
-    for (const k of Object.keys(FONT_FILES) as Array<keyof FontSet>) fonts[k] = new Uint8Array(readFileSync(join(process.cwd(), 'public/fonts', FONT_FILES[k])));
+    for (const k of Object.keys(FONT_FILES) as FontKey[]) fonts[k] = new Uint8Array(readFileSync(join(process.cwd(), 'public/fonts', FONT_FILES[k])));
+    return fonts;
+}
+
+/** Fonts plus the extra alphabets, as the book worker would load them. */
+export function loadFontsWithScripts(): FontSet {
+    const fonts = loadFonts();
+    fonts.extra = {};
+    for (const s of EXTRA_SCRIPTS) for (const k of Object.keys(FONT_FILES) as FontKey[]) fonts.extra[`${k}:${s}`] = new Uint8Array(readFileSync(join(process.cwd(), 'public/fonts', extraFile(k, s))));
     return fonts;
 }
 

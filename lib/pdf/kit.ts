@@ -1,17 +1,16 @@
 import PDFDocument from 'pdfkit';
 import type { RGB } from '../palette';
+import { EXTRA_SCRIPTS, splitRuns, type Script } from './scripts';
+
+export type FontKey = 'sans' | 'sansBold' | 'serif' | 'serifBold' | 'serifItalic' | 'serifBoldItalic';
 
 /** Font files (WOFF/TTF bytes). Passed in so the same code runs in a web worker and in Node tests. */
-export interface FontSet {
-    sans: Uint8Array;
-    sansBold: Uint8Array;
-    serif: Uint8Array;
-    serifBold: Uint8Array;
-    serifItalic: Uint8Array;
-    serifBoldItalic: Uint8Array;
-}
+export type FontSet = Record<FontKey, Uint8Array> & {
+    /** Optional fonts for other alphabets, keyed like "serifBold:cyrillic". Only the ones a book needs are loaded. */
+    extra?: Record<string, Uint8Array>;
+};
 
-export const FONT_FILES: Record<keyof FontSet, string> = {
+export const FONT_FILES: Record<FontKey, string> = {
     sans: 'inter-latin-400-normal.woff',
     sansBold: 'inter-latin-700-normal.woff',
     serif: 'source-serif-4-latin-400-normal.woff',
@@ -20,18 +19,29 @@ export const FONT_FILES: Record<keyof FontSet, string> = {
     serifBoldItalic: 'source-serif-4-latin-700-italic.woff',
 };
 
-/** Loads the font files over HTTP (browser or worker). */
-export async function fetchFonts(baseUrl = '/fonts/'): Promise<FontSet> {
+const BASE_KEYS = Object.keys(FONT_FILES) as FontKey[];
+
+/** File name of a font for another alphabet, e.g. "inter-cyrillic-400-normal.woff". */
+export const extraFile = (key: FontKey, script: Exclude<Script, 'latin'>) => FONT_FILES[key].replace('-latin-', `-${script}-`);
+
+/** Loads the font files over HTTP (browser or worker). `scripts` adds fonts for other alphabets. */
+export async function fetchFonts(baseUrl = '/fonts/', scripts: Script[] = []): Promise<FontSet> {
+    const get = async (file: string) => {
+        const res = await fetch(baseUrl + file);
+        if (!res.ok) throw new Error(`Could not load font ${file}`);
+        return new Uint8Array(await res.arrayBuffer());
+    };
     const out = {} as FontSet;
-    await Promise.all((Object.keys(FONT_FILES) as Array<keyof FontSet>).map(async (k) => {
-        const res = await fetch(baseUrl + FONT_FILES[k]);
-        if (!res.ok) throw new Error(`Could not load font ${FONT_FILES[k]}`);
-        out[k] = new Uint8Array(await res.arrayBuffer());
-    }));
+    const extra: Record<string, Uint8Array> = {};
+    const wanted = EXTRA_SCRIPTS.filter((s) => scripts.includes(s));
+    await Promise.all([
+        ...BASE_KEYS.map(async (k) => { out[k] = await get(FONT_FILES[k]); }),
+        ...wanted.flatMap((s) => BASE_KEYS.map(async (k) => { extra[`${k}:${s}`] = await get(extraFile(k, s)); })),
+    ]);
+    if (wanted.length) out.extra = extra;
     return out;
 }
 
-export type FontKey = 'sans' | 'sansBold' | 'serif' | 'serifBold' | 'serifItalic' | 'serifBoldItalic';
 type Doc = InstanceType<typeof PDFDocument>;
 
 export interface DocInfo {
@@ -67,6 +77,7 @@ export class Kit {
     private chunks: Uint8Array[] = [];
     private finished: Promise<Uint8Array>;
     pageCount = 0;
+    private extraNames = new Set<string>();
 
     constructor(info: DocInfo, fonts: FontSet) {
         this.doc = new PDFDocument({
@@ -80,7 +91,8 @@ export class Kit {
             lang: info.lang ?? 'en-US',
             info: Object.fromEntries(Object.entries({ Title: info.title, Author: info.author, Subject: info.subject, Keywords: info.keywords, Creator: 'Sudoku generator' }).filter(([, v]) => v)),
         });
-        (Object.keys(fonts) as FontKey[]).forEach((k) => this.doc.registerFont(k, fonts[k] as unknown as Buffer));
+        BASE_KEYS.forEach((k) => this.doc.registerFont(k, fonts[k] as unknown as Buffer));
+        for (const [name, bytes] of Object.entries(fonts.extra ?? {})) { this.doc.registerFont(name, bytes as unknown as Buffer); this.extraNames.add(name); }
         this.finished = new Promise((resolve, reject) => {
             this.doc.on('data', (c: Uint8Array) => this.chunks.push(c));
             this.doc.on('end', () => {
@@ -109,13 +121,21 @@ export class Kit {
         this.doc.translate(ox * MM, oy * MM);
     }
 
-    private font(f: FontKey, size: number) { this.doc.font(f).fontSize(size); }
+    /** The registered font to use for one run: the alphabet-specific one when it is loaded, else the base font. */
+    private fontFor(key: FontKey, script: Script): string {
+        const name = `${key}:${script}`;
+        return script !== 'latin' && this.extraNames.has(name) ? name : key;
+    }
 
-    /** Width of a string in mm. */
+    /** Width of a string in mm, summed over runs so mixed alphabets measure correctly. */
     width(str: string, o: TextOpts = {}): number {
-        this.font(o.font ?? 'sans', o.size ?? 10);
         const track = (o.track ?? 0) * MM;
-        return (this.doc.widthOfString(str, { characterSpacing: track }) - (str.length ? track : 0)) / MM;
+        let w = 0;
+        for (const r of splitRuns(str)) {
+            this.doc.font(this.fontFor(o.font ?? 'sans', r.script)).fontSize(o.size ?? 10);
+            w += this.doc.widthOfString(r.text, { characterSpacing: track }) + (track ? 0 : 0);
+        }
+        return (w - (str.length ? track : 0)) / MM;
     }
 
     /** Splits text into lines no wider than `maxW` mm. */
@@ -177,9 +197,13 @@ export class Kit {
         const d = this.doc;
         d.save();
         if (o.opacity !== undefined) d.fillOpacity(o.opacity);
-        this.font(o.font ?? 'sans', size);
         d.fillColor(o.color ?? [0, 0, 0]);
-        d.text(str, left * MM, y * MM, { lineBreak: false, baseline: o.baseline ?? 'alphabetic', characterSpacing: (o.track ?? 0) * MM });
+        let cx = left * MM;
+        for (const r of splitRuns(str)) {
+            d.font(this.fontFor(o.font ?? 'sans', r.script)).fontSize(size);
+            d.text(r.text, cx, y * MM, { lineBreak: false, baseline: o.baseline ?? 'alphabetic', characterSpacing: (o.track ?? 0) * MM });
+            cx += d.widthOfString(r.text, { characterSpacing: (o.track ?? 0) * MM });
+        }
         d.restore();
         return w;
     }
