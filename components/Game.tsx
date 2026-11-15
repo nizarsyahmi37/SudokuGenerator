@@ -12,12 +12,15 @@ import { levelColor } from '../lib/bookConfig';
 import { readableOn, css } from '../lib/palette';
 import { ExportFormat, ExportKind, exportBoard } from '../lib/export';
 import AdSlot from './AdSlot';
-import BookBuilder from './BookBuilder';
+import dynamic from 'next/dynamic';
 import FxLayer, { FxHandle } from './FxLayer';
 import SettingsPanel from './SettingsPanel';
 import { useTheme } from './ThemeProvider';
 import { useI18n } from './I18nProvider';
 import type { MsgKey, Vars } from '../lib/i18n';
+
+// The book maker (PDF toolkit, preview, worker client) is only downloaded when someone opens it.
+const BookBuilder = dynamic(() => import('./BookBuilder'), { ssr: false });
 
 type Tab = 'play' | 'book';
 const TABS: Array<{ id: Tab; key: 'tab.play' | 'tab.book' }> = [
@@ -39,6 +42,7 @@ export default function Game() {
     const uid = useId();
     const { t, tp } = useI18n();
     const [tab, setTab] = useState<Tab>('play');
+    const [bookOpened, setBookOpened] = useState(false);
     const [game, dispatch] = useReducer(reducer, null);
     const [selected, setSelected] = useState<number | null>(null);
     const [notesMode, setNotesMode] = useState(false);
@@ -296,6 +300,7 @@ export default function Game() {
         if (to < 0) return;
         e.preventDefault();
         setTab(TABS[to].id);
+        if (TABS[to].id === 'book') setBookOpened(true);
         document.getElementById(`${uid}-tab-${TABS[to].id}`)?.focus();
     };
 
@@ -322,7 +327,7 @@ export default function Game() {
                 <div role="tablist" aria-label={t('tabs.label')} className="tabs" onKeyDown={onTabKey}>
                     {TABS.map((tb) => (
                         <button key={tb.id} id={`${uid}-tab-${tb.id}`} role="tab" type="button" aria-selected={tab === tb.id} aria-controls={`${uid}-panel-${tb.id}`}
-                            tabIndex={tab === tb.id ? 0 : -1} className={tab === tb.id ? 'on' : ''} onClick={() => setTab(tb.id)}>{t(tb.key)}</button>
+                            tabIndex={tab === tb.id ? 0 : -1} className={tab === tb.id ? 'on' : ''} onClick={() => { setTab(tb.id); if (tb.id === 'book') setBookOpened(true); }}>{t(tb.key)}</button>
                     ))}
                 </div>
                 <details className="settings-wrap">
@@ -342,6 +347,7 @@ export default function Game() {
                             <span className="stat">{filledCount}/81</span>
                         </div>
                         <progress className="progress" max={81} value={filledCount} aria-label={t('board.progress')}>{t('board.progressText', { n: filledCount })}</progress>
+                        {!game && <p className="code" aria-hidden="true">&nbsp;</p>}
                         {game && <p className="code">{t(game.kind === 'daily' ? 'board.kind.daily' : game.kind === 'shared' ? 'board.kind.shared' : 'board.kind.random')} <b dir="ltr">{game.seed}</b> · {game.limit ? t('board.mistakesOf', { n: game.mistakes, limit: game.limit }) : tp('board.mistakes', game.mistakes)} · {tp('board.hints', game.hintsUsed)}</p>}
 
                         <div className="grid-wrap">
@@ -526,7 +532,7 @@ export default function Game() {
                 </div>
 
                 <div id={`${uid}-panel-book`} role="tabpanel" aria-labelledby={`${uid}-tab-book`} hidden={tab !== 'book'}>
-                    <BookBuilder gameTheme={theme} gameMode={mode} />
+                    {bookOpened && <BookBuilder gameTheme={theme} gameMode={mode} />}
                     <AdSlot placement="book" />
                 </div>
             </main>

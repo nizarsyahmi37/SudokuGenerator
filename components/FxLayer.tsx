@@ -15,6 +15,7 @@ const FxLayer = forwardRef<FxHandle>(function FxLayer(_, ref) {
     const host = useRef<HTMLDivElement>(null);
     const scene = useRef<Phaser.Scene | null>(null);
     const queue = useRef<Array<() => void>>([]);
+    const startRef = useRef<() => void>(() => {});
 
     useImperativeHandle(ref, () => ({
         burst: (x, y, color, count = 18) => {
@@ -28,7 +29,7 @@ const FxLayer = forwardRef<FxHandle>(function FxLayer(_, ref) {
                 e.explode(count);
                 s.time.delayedCall(900, () => e.destroy());
             };
-            if (scene.current) run(); else queue.current.push(run);
+            if (scene.current) run(); else { queue.current.push(run); startRef.current(); }
         },
         fireworks: (palette) => {
             const run = () => {
@@ -48,16 +49,21 @@ const FxLayer = forwardRef<FxHandle>(function FxLayer(_, ref) {
                     });
                 }
             };
-            if (scene.current) run(); else queue.current.push(run);
+            if (scene.current) run(); else { queue.current.push(run); startRef.current(); }
         },
     }));
 
-    useEffect(() => {
-        let game: Phaser.Game | undefined;
-        let disposed = false;
+    const game = useRef<Phaser.Game | null>(null);
+    const starting = useRef(false);
+    const disposed = useRef(false);
+
+    /** Phaser is about 1.3 MB, so it is only downloaded when the first effect is actually wanted. */
+    const start = () => {
+        if (starting.current || game.current) return;
+        starting.current = true;
         (async () => {
             const Phaser = (await import('phaser')).default;
-            if (disposed || !host.current) return;
+            if (disposed.current || !host.current) return;
             class FxScene extends Phaser.Scene {
                 create() {
                     const g = this.add.graphics();
@@ -69,7 +75,7 @@ const FxLayer = forwardRef<FxHandle>(function FxLayer(_, ref) {
                     queue.current.splice(0).forEach((fn) => fn());
                 }
             }
-            game = new Phaser.Game({
+            game.current = new Phaser.Game({
                 type: Phaser.AUTO,
                 parent: host.current,
                 transparent: true,
@@ -79,7 +85,13 @@ const FxLayer = forwardRef<FxHandle>(function FxLayer(_, ref) {
                 audio: { noAudio: true },
             });
         })();
-        return () => { disposed = true; scene.current = null; game?.destroy(true); };
+    };
+    startRef.current = start;
+
+    useEffect(() => {
+        disposed.current = false;
+        const g = game;
+        return () => { disposed.current = true; scene.current = null; g.current?.destroy(true); g.current = null; starting.current = false; };
     }, []);
 
     return <div ref={host} className="fx-layer" aria-hidden="true" />;

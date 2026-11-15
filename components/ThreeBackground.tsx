@@ -17,6 +17,13 @@ export default function ThreeBackground() {
         let cleanup = () => {};
 
         (async () => {
+            // The backdrop is decoration: it waits until the page has loaded and the browser is idle, so it never delays the game.
+            await new Promise<void>((r) => {
+                const go = () => { const w = window as unknown as { requestIdleCallback?: (cb: () => void, o: { timeout: number }) => void }; if (w.requestIdleCallback) w.requestIdleCallback(() => r(), { timeout: 3000 }); else setTimeout(r, 1500); };
+                if (document.readyState === 'complete') go(); else window.addEventListener('load', go, { once: true });
+            });
+            await new Promise((r) => setTimeout(r, 2000)); // a little longer, so the first seconds belong to the game
+            if (disposed) return;
             const [THREE, { buildScene }] = await Promise.all([import('three'), import('../lib/scenes3d')]);
             if (disposed) return;
             const th = getTheme(theme, mode);
