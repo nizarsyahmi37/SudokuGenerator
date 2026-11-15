@@ -192,6 +192,16 @@ export class Kit {
         this.doc.restore();
     }
 
+    /** Draws a PNG or JPEG scaled to fill the rectangle, cropped to fit. */
+    image(bytes: Uint8Array, x: number, y: number, w: number, h: number) {
+        const d = this.doc;
+        const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+        d.save();
+        d.rect(x * MM, y * MM, w * MM, h * MM).clip();
+        d.image(buf, x * MM, y * MM, { cover: [w * MM, h * MM], align: 'center', valign: 'center' });
+        d.restore();
+    }
+
     /** Restricts `draw` to a rectangle (used for artwork that must not spill over a spine). */
     clip(x: number, y: number, w: number, h: number, draw: () => void) {
         this.doc.save();

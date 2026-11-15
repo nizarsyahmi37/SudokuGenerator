@@ -46,6 +46,26 @@ export interface Copyright {
     isbn: string;
 }
 
+export interface CoverImage {
+    bytes: Uint8Array;
+    mime: 'image/png' | 'image/jpeg';
+    /** Text description for screen readers; the picture is treated as decoration when this is empty. */
+    alt: string;
+}
+
+export interface CoverOptions {
+    /** Replaces the default tagline under the title. */
+    subtitle: string;
+    /** Custom cover colours as #rrggbb; empty means use the theme. Text colours adjust to stay readable. */
+    bgColor: string;
+    accentColor: string;
+    /** The large background grid; ignored when a picture is used. */
+    showGrid: boolean;
+    image: CoverImage | null;
+}
+
+export const DEFAULT_COVER: CoverOptions = { subtitle: '', bgColor: '', accentColor: '', showGrid: true, image: null };
+
 export interface BookConfig {
     counts: Record<Level, number>; // number of puzzles per level
     /** Trim size in mm. */
@@ -63,6 +83,7 @@ export interface BookConfig {
     /** null = digital book; otherwise print-ready interior (+ cover wrap). */
     print: PrintOptions | null;
     copyright: Copyright;
+    cover: CoverOptions;
     /** Short text for the back cover (print) */
     backCover: string;
 }

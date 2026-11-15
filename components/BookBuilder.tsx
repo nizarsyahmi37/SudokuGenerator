@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, type Level } from '../lib/sudoku';
-import { DEFAULT_BLEED_MM, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type Paper } from '../lib/bookConfig';
+import { DEFAULT_BLEED_MM, DEFAULT_COVER, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type CoverImage, type Paper } from '../lib/bookConfig';
 import { buildBookInWorker, type BookJob } from '../lib/bookClient';
 import { downloadBlob, pdfBlob } from '../lib/download';
 import { normalizeSeed, randomSeed } from '../lib/rng';
@@ -53,6 +53,14 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     const [year, setYear] = useState(new Date().getFullYear());
     const [isbn, setIsbn] = useState('');
     const [backCover, setBackCover] = useState('');
+    const [coverSubtitle, setCoverSubtitle] = useState('');
+    const [customColours, setCustomColours] = useState(false);
+    const [coverBg, setCoverBg] = useState('#14213d');
+    const [coverAccent, setCoverAccent] = useState('#fca311');
+    const [showGrid, setShowGrid] = useState(true);
+    const [coverImage, setCoverImage] = useState<CoverImage | null>(null);
+    const [imageUrl, setImageUrl] = useState('');
+    const [imageError, setImageError] = useState('');
     const [progress, setProgress] = useState({ text: '', pct: 0, error: false });
     const [busy, setBusy] = useState(false);
     const [built, setBuilt] = useState<{ result: BookResult; key: string } | null>(null);
@@ -74,6 +82,19 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     }
 
     const printing = output === 'print';
+
+    /** Reads a picture for the cover. PNG and JPEG only, up to 5 MB, and it stays on this device. */
+    const pickImage = async (file: File | undefined) => {
+        setImageError('');
+        if (!file) return;
+        if (file.type !== 'image/png' && file.type !== 'image/jpeg') { setImageError('Please choose a PNG or JPEG picture.'); return; }
+        if (file.size > 5 * 1024 * 1024) { setImageError('That picture is larger than 5 MB. Please choose a smaller one.'); return; }
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        if (imageUrl) URL.revokeObjectURL(imageUrl);
+        setImageUrl(URL.createObjectURL(file));
+        setCoverImage({ bytes, mime: file.type, alt: coverImage?.alt ?? '' });
+    };
+    const removeImage = () => { if (imageUrl) URL.revokeObjectURL(imageUrl); setImageUrl(''); setCoverImage(null); };
     const [w, h] = printing
         ? (podSize === 'Custom' ? [custom.w, custom.h] : POD_TRIMS[podSize])
         : (size === 'Custom' ? [custom.w, custom.h] : PAGE_SIZES[size]);
@@ -86,9 +107,11 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
         counts, pageWidth: w, pageHeight: h, puzzlesPerPage: largePrint ? 1 : perPage, title, author, theme, mode: paper, seed: seedNorm, largePrint,
         print: printing ? { bleedMm, bleedEdges, cropMarks, paper: paperStock } : null,
         copyright: { enabled: copyrightOn, holder, year, isbn },
+        cover: { ...DEFAULT_COVER, subtitle: coverSubtitle, bgColor: customColours ? coverBg : '', accentColor: customColours ? coverAccent : '', showGrid, image: coverImage },
         backCover,
-    }), [counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, copyrightOn, holder, year, isbn, backCover]);
-    const key = JSON.stringify(cfg);
+    }), [counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
+    // The picture is left out of the key (it could be megabytes); its size and description stand in for it.
+    const key = JSON.stringify({ ...cfg, cover: { ...cfg.cover, image: coverImage ? { n: coverImage.bytes.length, alt: coverImage.alt } : null } });
     const plan = planPages(cfg);
     const spine = printing ? spineWidthMm(plan.pages, paperStock) : 0;
     const canBuild = total > 0 && total <= MAX_TOTAL && validSize && validBleed && !!seedNorm && !busy;
@@ -279,6 +302,47 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         </label>
                     </div>
                 )}
+                <fieldset className="plain cover-opts" style={{ marginTop: 14 }}>
+                    <legend className="field-label">Cover</legend>
+                    <label className="field">Subtitle (optional)
+                        <input type="text" value={coverSubtitle} onChange={(e) => setCoverSubtitle(e.target.value)} placeholder="Replaces the line under the title" />
+                    </label>
+                    <label className="check">
+                        <input type="checkbox" checked={customColours} onChange={(e) => setCustomColours(e.target.checked)} />
+                        <span>Use my own cover colours</span>
+                    </label>
+                    {customColours && (
+                        <div className="two-col" style={{ marginTop: 10 }}>
+                            <label className="field">Background
+                                <input type="color" value={coverBg} onChange={(e) => setCoverBg(e.target.value)} />
+                            </label>
+                            <label className="field">Accent
+                                <input type="color" value={coverAccent} onChange={(e) => setCoverAccent(e.target.value)} />
+                            </label>
+                            <p className="hint">Text colours adjust automatically so the cover stays readable.</p>
+                        </div>
+                    )}
+                    <label className="check" style={{ marginTop: 10 }}>
+                        <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} disabled={!!coverImage} />
+                        <span>Large background grid{coverImage ? ' (hidden while a picture is used)' : ''}</span>
+                    </label>
+                    <label className="field" style={{ marginTop: 10 }}>Cover picture (optional, PNG or JPEG, up to 5 MB)
+                        <input type="file" accept="image/png,image/jpeg" onChange={(e) => { void pickImage(e.target.files?.[0]); e.target.value = ''; }} aria-describedby={imageError ? `${uid}-img-err` : undefined} />
+                    </label>
+                    {imageError && <p id={`${uid}-img-err`} className="status err" role="alert">{imageError}</p>}
+                    {coverImage && (
+                        <div className="cover-image">
+                            {/* eslint-disable-next-line @next/next/no-img-element -- a local blob preview, not a site asset */}
+                            <img src={imageUrl} alt={coverImage.alt || 'Cover picture preview'} />
+                            <div>
+                                <label className="field">Describe the picture for screen readers
+                                    <input type="text" value={coverImage.alt} onChange={(e) => setCoverImage({ ...coverImage, alt: e.target.value })} placeholder="Leave empty if it is only decoration" />
+                                </label>
+                                <button type="button" className="link-button" onClick={removeImage}>Remove picture</button>
+                            </div>
+                        </div>
+                    )}
+                </fieldset>
                 {printing && (
                     <label className="field" style={{ marginTop: 10 }}>Back cover text (optional)
                         <textarea rows={3} value={backCover} onChange={(e) => setBackCover(e.target.value)} />

@@ -1,9 +1,9 @@
 import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, generatePuzzle, type Level, type Puzzle } from '../sudoku';
 import { puzzleRng, normalizeSeed, seeded } from '../rng';
-import { contrast, ensure, mix, readableOn, type RGB } from '../palette';
+import { contrast, ensure, isDark, mix, readableOn, type RGB } from '../palette';
 import { getTheme, type Theme } from '../themes';
 import { kdpGutterMm, planPages, spineWidthMm, totalPuzzles, type BookConfig, type BookResult, type Progress } from '../bookConfig';
-import { Kit, type FontSet, type TextOpts } from './kit';
+import { Kit, type FontSet } from './kit';
 
 interface Entry extends Puzzle { number: number; level: Level }
 
@@ -45,6 +45,73 @@ function drawBoard(k: Kit, t: Theme, x: number, y: number, size: number, puzzle:
     }, { alt });
 }
 
+const hexRgb = (h: string): RGB | null => (/^#[0-9a-f]{6}$/i.test(h) ? [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)] : null);
+
+/** Colours for the cover only. Custom colours are nudged so the text on them always meets 4.5:1. */
+export function coverTheme(t: Theme, o: BookConfig['cover']): Theme {
+    const bg = hexRgb(o.bgColor), ac = hexRgb(o.accentColor);
+    if (!bg && !ac) return t;
+    const page = bg ?? t.page;
+    const tinted = ensure(bg ? (isDark(page) ? mix(page, [255, 255, 255], 0.94) : mix(page, [0, 0, 0], 0.92)) : t.ink, page, 12);
+    // On mid-tone backgrounds no tint can reach a high ratio, so fall back to whichever of black or white reads best.
+    const ink: RGB = contrast(tinted, page) >= 7 ? tinted : contrast([255, 255, 255], page) > contrast([0, 0, 0], page) ? [255, 255, 255] : [0, 0, 0];
+    const spot = ensure(ac ?? spotOf(t), page, 4.5);
+    return { ...t, page, card: page, ink, muted: ensure(mix(ink, page, 0.4), page, 4.6), primary: spot, accent: spot, filled: spot, given: ink, motif: 'cosmos' };
+}
+
+interface FrontCoverArgs { x: number; y: number; w: number; h: number; bleedTop: number; bleedRight: number; total: number; seed: string; sc: number }
+
+/** The front cover: type at the bottom left, and either a picture or an oversized grid bleeding off the top right. */
+function drawFrontCover(k: Kit, t: Theme, cfg: BookConfig, o: FrontCoverArgs) {
+    const spot = spotOf(t);
+    const title = cfg.title.trim() || 'Sudoku';
+    const author = cfg.author.trim();
+    const img = cfg.cover.image;
+    const { x, y, w, h } = o;
+    if (img) {
+        const draw = () => k.image(img.bytes, x, y - o.bleedTop, w + o.bleedRight, h * 0.5 + o.bleedTop);
+        if (img.alt.trim()) k.tag('Figure', draw, { alt: img.alt.trim() });
+        else k.artifact(draw);
+    } else if (cfg.cover.showGrid) {
+        const rand = seeded(`${o.seed}|cover`);
+        k.artifact(() => k.clip(x, y - o.bleedTop, w + o.bleedRight, h + 2 * o.bleedTop, () => {
+            const size = w * 0.92, x0 = x + w * 0.3, y0 = y - w * 0.12, cell = size / 9;
+            k.rect(x0 + 3 * cell, y0 + 3 * cell, 3 * cell, 3 * cell, { fill: spot, opacity: 0.13 });
+            for (let i = 0; i <= 9; i++) {
+                const lw = i % 3 === 0 ? 0.9 : 0.2;
+                k.line(x0 + i * cell, y0, x0 + i * cell, y0 + size, spot, lw, 0.45);
+                k.line(x0, y0 + i * cell, x0 + size, y0 + i * cell, spot, lw, 0.45);
+            }
+            const used = new Set<number>();
+            for (let n = 0; n < 16; n++) {
+                const idx = Math.floor(rand() * 81);
+                if (used.has(idx)) continue;
+                used.add(idx);
+                k.text(String(1 + Math.floor(rand() * 9)), x0 + (idx % 9) * cell + cell / 2, y0 + Math.floor(idx / 9) * cell + cell / 2, { font: 'sansBold', size: cell * 2.83465 * 0.7, color: spot, align: 'center', baseline: 'middle', opacity: 0.55 });
+            }
+        }));
+    }
+    const px = x + M + GUT, maxW = w - M - GUT - M;
+    let fs = Math.min(40, w / 3.4);
+    let lines: string[] = [];
+    for (; fs > 16; fs -= 1) {
+        lines = k.wrap(title, maxW, { font: 'serifBold', size: fs });
+        if (lines.length <= 3) break;
+    }
+    const lh = fs * 0.37;
+    const blockTop = y + h * 0.62;
+    k.tag('P', () => k.text('SUDOKU', px, blockTop - 8, { font: 'sansBold', size: 8, color: spot, track: 1.6 }));
+    k.tag('H1', () => lines.forEach((ln, i) => k.text(ln, px, blockTop + fs * 0.3 + i * lh * 1.05, { font: 'serifBold', size: fs, color: t.ink })), { actual: title });
+    const ty = blockTop + fs * 0.3 + (lines.length - 1) * lh * 1.05 + 9;
+    k.artifact(() => k.rect(px, ty - 3, 18, 0.8, { fill: spot }));
+    const sub = cfg.cover.subtitle.trim() || `${o.total} puzzle${o.total === 1 ? '' : 's'} in ten levels, from gentle to fiendish.`;
+    const subLines = k.wrap(sub, maxW, { font: 'serifItalic', size: 11 * Math.max(o.sc, 0.8) });
+    k.tag('P', () => {
+        subLines.forEach((ln, i) => k.text(ln, px, ty + 5 + i * 5, { font: 'serifItalic', size: 11 * Math.max(o.sc, 0.8), color: t.muted }));
+        if (author) k.text(author, px, ty + 5 + subLines.length * 5 + 2, { font: 'serif', size: 12 * Math.max(o.sc, 0.8), color: t.ink });
+    });
+}
+
 export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Progress): Promise<BookResult> {
     const t = getTheme(cfg.theme, cfg.mode);
     const spot = spotOf(t);
@@ -59,6 +126,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
     const author = cfg.author.trim();
     const faint = ensure(mix(t.page, t.ink, 0.4), t.page, 3.1);
     const muted: RGB = lp ? t.ink : t.muted; // large print: no low-contrast secondary text
+    const ct = coverTheme(t, cfg.cover);
     const print = cfg.print;
 
     // ---- 1. Generate puzzles (each one from its own seeded stream, so the book is repeatable) ----
@@ -137,51 +205,14 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
     const pageOf = (n: number) => FIRST + Math.floor((n - 1) / per);
     const solPageOf = (n: number) => solStart + Math.floor((n - 1) / solPer);
 
-    // Reusable cover artwork: type on the left-bottom, an oversized grid bleeding off the top right.
-    const frontCover = (x: number, y: number, w: number, h: number, bleedAround: number) => {
-        const rand = seeded(`${seed}|cover`);
-        k.artifact(() => k.clip(x - bleedAround, y - bleedAround, w + 2 * bleedAround, h + 2 * bleedAround, () => {
-            const size = w * 0.92, x0 = x + w * 0.3, y0 = y - w * 0.12, cell = size / 9;
-            k.rect(x0 + 3 * cell, y0 + 3 * cell, 3 * cell, 3 * cell, { fill: spot, opacity: 0.13 });
-            for (let i = 0; i <= 9; i++) {
-                const lw = i % 3 === 0 ? 0.9 : 0.2;
-                k.line(x0 + i * cell, y0, x0 + i * cell, y0 + size, spot, lw, 0.45);
-                k.line(x0, y0 + i * cell, x0 + size, y0 + i * cell, spot, lw, 0.45);
-            }
-            const used = new Set<number>();
-            for (let n = 0; n < 16; n++) {
-                const idx = Math.floor(rand() * 81);
-                if (used.has(idx)) continue;
-                used.add(idx);
-                k.text(String(1 + Math.floor(rand() * 9)), x0 + (idx % 9) * cell + cell / 2, y0 + Math.floor(idx / 9) * cell + cell / 2, { font: 'sansBold', size: cell * 2.83465 * 0.7, color: spot, align: 'center', baseline: 'middle', opacity: 0.55 });
-            }
-        }));
-        const px = x + M + GUT, maxW = w - M - GUT - M;
-        let fs = Math.min(40, w / 3.4);
-        let lines: string[] = [];
-        for (; fs > 16; fs -= 1) {
-            lines = k.wrap(title, maxW, { font: 'serifBold', size: fs });
-            if (lines.length <= 3) break;
-        }
-        const lh = fs * 0.37;
-        const blockTop = y + h * 0.62;
-        k.tag('P', () => label('Sudoku', px, blockTop - 8, 8, spot, 1.6));
-        k.tag('H1', () => lines.forEach((ln, i) => k.text(ln, px, blockTop + fs * 0.3 + i * lh * 1.05, { font: 'serifBold', size: fs, color: t.ink })), { actual: title });
-        const ty = blockTop + fs * 0.3 + (lines.length - 1) * lh * 1.05 + 9;
-        k.artifact(() => k.rect(px, ty - 3, 18, 0.8, { fill: spot }));
-        k.tag('P', () => {
-            k.text(`${total} puzzle${total === 1 ? '' : 's'} in ten levels, from gentle to fiendish.`, px, ty + 5, { font: 'serifItalic', size: 11 * Math.max(sc, 0.8), color: muted });
-            if (author) k.text(author, px, ty + 12, { font: 'serif', size: 12 * Math.max(sc, 0.8), color: t.ink });
-        });
-    };
-
     // ---- 3. Front matter ----
     const bookmarks: Array<[string, number]> = [];
     const mark = (name: string, page: number) => bookmarks.push([name, page]);
 
     if (!print) {
         newPage();
-        frontCover(0, 0, TW, TH, 0);
+        if (ct !== t) k.artifact(() => k.rect(0, 0, TW, TH, { fill: ct.page }));
+        drawFrontCover(k, ct, cfg, { x: 0, y: 0, w: TW, h: TH, bleedTop: 0, bleedRight: 0, total, seed, sc });
         mark('Cover', pageNo);
     } else {
         newPage(); // title page
@@ -396,7 +427,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
     let spineMm: number | undefined;
     if (print) {
         spineMm = spineWidthMm(pages, print.paper);
-        cover = await buildCover({ cfg, t, fonts, pages, spineMm, bleed, slug, total, seed });
+        cover = await buildCover({ cfg, t: ct, fonts, pages, spineMm, bleed, slug, total, seed });
     }
     return { interior, cover, pages, spineMm };
 }
@@ -433,37 +464,7 @@ async function buildCover({ cfg, t, fonts, pages, spineMm, bleed, slug, total, s
 
     // front cover (right panel)
     const fx = TW + spineMm;
-    const rand = seeded(`${seed}|cover`);
-    k.artifact(() => k.clip(fx, -bleed, TW + bleed, H + 2 * bleed, () => {
-        const size = TW * 0.92, x0 = fx + TW * 0.3, y0 = -TW * 0.12, cell = size / 9;
-        k.rect(x0 + 3 * cell, y0 + 3 * cell, 3 * cell, 3 * cell, { fill: spot, opacity: 0.13 });
-        for (let i = 0; i <= 9; i++) {
-            const lw = i % 3 === 0 ? 0.9 : 0.2;
-            k.line(x0 + i * cell, y0, x0 + i * cell, y0 + size, spot, lw, 0.45);
-            k.line(x0, y0 + i * cell, x0 + size, y0 + i * cell, spot, lw, 0.45);
-        }
-        const used = new Set<number>();
-        for (let n = 0; n < 16; n++) {
-            const idx = Math.floor(rand() * 81);
-            if (used.has(idx)) continue;
-            used.add(idx);
-            k.text(String(1 + Math.floor(rand() * 9)), x0 + (idx % 9) * cell + cell / 2, y0 + Math.floor(idx / 9) * cell + cell / 2, { font: 'sansBold', size: cell * 2.83465 * 0.7, color: spot, align: 'center', baseline: 'middle', opacity: 0.55 });
-        }
-    }));
-    const px = fx + M + GUT, maxW = TW - 2 * M - GUT;
-    let fs = Math.min(40, TW / 3.4);
-    let lines: string[] = [];
-    for (; fs > 16; fs -= 1) { lines = k.wrap(title, maxW, { font: 'serifBold', size: fs }); if (lines.length <= 3) break; }
-    const lh = fs * 0.37, blockTop = H * 0.62;
-    const lab = (s: string, x: number, y: number, size: number, c: RGB, track: number, o: Partial<TextOpts> = {}) => k.text(s.toUpperCase(), x, y, { font: 'sansBold', size, color: c, track, ...o });
-    k.tag('P', () => lab('Sudoku', px, blockTop - 8, 8, spot, 1.6));
-    k.tag('H1', () => lines.forEach((ln, i) => k.text(ln, px, blockTop + fs * 0.3 + i * lh * 1.05, { font: 'serifBold', size: fs, color: t.ink })), { actual: title });
-    const ty = blockTop + fs * 0.3 + (lines.length - 1) * lh * 1.05 + 9;
-    k.artifact(() => k.rect(px, ty - 3, 18, 0.8, { fill: spot }));
-    k.tag('P', () => {
-        k.text(`${total} puzzle${total === 1 ? '' : 's'} in ten levels, from gentle to fiendish.`, px, ty + 5, { font: 'serifItalic', size: 11 * Math.max(sc, 0.8), color: t.muted });
-        if (author) k.text(author, px, ty + 12, { font: 'serif', size: 12 * Math.max(sc, 0.8), color: t.ink });
-    });
+    drawFrontCover(k, t, cfg, { x: fx, y: 0, w: TW, h: TH, bleedTop: bleed, bleedRight: bleed, total, seed, sc });
 
     // back cover (left panel): short text and a clear area for the ISBN barcode
     const blurb = cfg.backCover.trim() || `${total} sudoku puzzles in ten levels of difficulty, every one with a single solution, plus a full answer key at the back.`;

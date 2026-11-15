@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { buildBook } from '../lib/pdf/book';
-import { planPages } from '../lib/bookConfig';
-import { loadFonts, pageTexts, smallBook } from './helpers';
+import { buildBook, coverTheme } from '../lib/pdf/book';
+import { contrast } from '../lib/palette';
+import { getTheme } from '../lib/themes';
+import { DEFAULT_COVER, planPages } from '../lib/bookConfig';
+import { loadFonts, makePng, pageTexts, smallBook } from './helpers';
 
 const fonts = loadFonts();
 
@@ -67,5 +69,29 @@ describe('book generator', () => {
         const cover = await pdfjs.getDocument({ data: (r.cover as Uint8Array).slice() }).promise;
         const cv = (await cover.getPage(1)).getViewport({ scale: 1 });
         expect(mm(cv.width)).toBeCloseTo(2 * 152.4 + (r.spineMm as number) + 2 * 3.175, 1);
+    });
+
+    it('cover: a custom subtitle, picture and description end up in the PDF', async () => {
+        const cover = { ...DEFAULT_COVER, subtitle: 'Weekend brain teasers', image: { bytes: makePng(), mime: 'image/png' as const, alt: 'A blue and green gradient' } };
+        const { interior } = await buildBook(smallBook({ cover }), fonts);
+        const doc = await pdfjs.getDocument({ data: interior.slice() }).promise;
+        const tree = await (await doc.getPage(1)).getStructTree();
+        const alts: string[] = [];
+        const walk = (n: { role?: string; alt?: string; children?: unknown[] } | null) => { if (!n) return; if (n.alt) alts.push(n.alt); (n.children ?? []).forEach((c) => walk(c as never)); };
+        walk(tree as never);
+        expect(alts).toContain('A blue and green gradient');
+        expect((await pageTexts(interior))[0]).toContain('Weekend brain teasers');
+    });
+
+    it('cover colours always give readable text, whatever the user picks', () => {
+        const base = getTheme('forest', 'light');
+        for (const bg of ['#000000', '#ffffff', '#777777', '#7f7f00', '#ff00ff']) {
+            for (const accent of ['#ff0000', '#00ff00', '#888888']) {
+                const t = coverTheme(base, { ...DEFAULT_COVER, bgColor: bg, accentColor: accent });
+                expect(contrast(t.ink, t.page)).toBeGreaterThanOrEqual(4.5);
+                expect(contrast(t.muted, t.page)).toBeGreaterThanOrEqual(4.5);
+                expect(contrast(t.primary, t.page)).toBeGreaterThanOrEqual(4.5);
+            }
+        }
     });
 });
