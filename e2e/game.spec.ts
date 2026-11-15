@@ -163,3 +163,43 @@ test('a file that is not a backup is refused', async ({ page }) => {
     await page.locator('.file-btn input').setInputFiles({ name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') });
     await expect(page.locator('.board-panel [role=status]')).toContainText('not a backup');
 });
+
+test('fill notes writes the possible digits and turns notes on', async ({ page }) => {
+    await page.getByRole('button', { name: 'Fill notes' }).click();
+    await expect(page.getByRole('button', { name: /^Notes on/ })).toBeVisible();
+    const i = await page.evaluate(() => [...document.querySelectorAll('[role=gridcell]')].findIndex((c) => /empty, notes /.test(c.getAttribute('aria-label') ?? '')));
+    expect(i).toBeGreaterThanOrEqual(0);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(cells(page).nth(i)).not.toHaveAttribute('aria-label', /notes/);
+});
+
+test('the keyboard shortcut list opens from the button and the ? key', async ({ page }) => {
+    const btn = page.getByRole('button', { name: 'Keyboard shortcuts' });
+    await btn.click();
+    await expect(page.getByRole('table', { name: 'Keyboard shortcuts' })).toBeVisible();
+    await btn.click();
+    await expect(page.getByRole('table', { name: 'Keyboard shortcuts' })).toHaveCount(0);
+    await cells(page).first().focus();
+    await page.keyboard.press('?');
+    await expect(page.getByRole('table', { name: 'Keyboard shortcuts' })).toBeVisible();
+});
+
+test('a mistake limit ends the game after that many wrong digits', async ({ page }) => {
+    await page.getByLabel('Mistake limit').selectOption('3');
+    await page.getByRole('button', { name: 'New game', exact: true }).click();
+    await expect(page.locator('.code')).toContainText('0 of 3 mistakes');
+    for (let n = 0; n < 3; n++) {
+        const i = await emptyCellIndex(page);
+        await cells(page).nth(i).focus();
+        // Try each digit until one is wrong: the status bar counts mistakes.
+        const before = await page.locator('.code').textContent();
+        for (const d of '123456789') {
+            await page.keyboard.press(d);
+            if ((await page.locator('.code').textContent()) !== before) break;
+            await page.keyboard.press('Backspace');
+        }
+    }
+    await expect(page.locator('.board-panel [role=status]')).toContainText('Game over');
+    await page.reload();
+    await expect(page.locator('.board-panel [role=status]')).toContainText('Game over');
+});

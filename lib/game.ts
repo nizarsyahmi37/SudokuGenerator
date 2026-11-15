@@ -24,7 +24,10 @@ export interface Game {
     revealed: boolean;
     hintsUsed: number;
     mistakes: number;
+    /** Mistakes allowed before the game is lost. 0 means no limit. */
+    limit: number;
     won: boolean;
+    lost: boolean;
 }
 
 const HISTORY_LIMIT = 300;
@@ -44,12 +47,14 @@ const peers = (i: number) => {
 const PEERS = Array.from({ length: 81 }, (_, i) => peers(i));
 
 /** Starts a game. The same seed and level always give the same puzzle, which is what makes sharing work. */
-export function newGame(seed: string, level: Level, kind: Kind): Game {
+export const MISTAKE_LIMITS = [0, 3, 5] as const;
+
+export function newGame(seed: string, level: Level, kind: Kind, limit = 0): Game {
     const s = normalizeSeed(seed);
     const p = generatePuzzle(level, puzzleRng(s, level, 0));
     return {
         level, seed: s, kind, puzzle: p.puzzle, solution: p.solution, grade: p.grade, board: [...p.puzzle], notes: new Array(81).fill(0),
-        past: [], future: [], seconds: 0, started: false, paused: false, revealed: false, hintsUsed: 0, mistakes: 0, won: false,
+        past: [], future: [], seconds: 0, started: false, paused: false, revealed: false, hintsUsed: 0, mistakes: 0, limit, won: false, lost: false,
     };
 }
 
@@ -64,6 +69,7 @@ export type Action =
     | { type: 'resume' }
     | { type: 'tick' }
     | { type: 'hint' }
+    | { type: 'fillNotes' }
     | { type: 'solve' };
 
 const snap = (g: Game): Snapshot => ({ board: [...g.board], notes: [...g.notes] });
@@ -80,19 +86,31 @@ export function reducer(g: Game | null, a: Action): Game | null {
     if (!g) return g;
     switch (a.type) {
         case 'start': return g.started ? g : { ...g, started: true };
-        case 'pause': return g.started && !g.paused && !g.won && !g.revealed ? { ...g, paused: true } : g;
+        case 'pause': return g.started && !g.paused && !g.won && !g.lost && !g.revealed ? { ...g, paused: true } : g;
         case 'resume': return g.paused ? { ...g, paused: false } : g;
-        case 'tick': return g.started && !g.paused && !g.won && !g.revealed ? { ...g, seconds: g.seconds + 1 } : g;
-        case 'hint': return g.paused ? g : { ...g, hintsUsed: g.hintsUsed + 1 };
+        case 'tick': return g.started && !g.paused && !g.won && !g.lost && !g.revealed ? { ...g, seconds: g.seconds + 1 } : g;
+        case 'hint': return g.paused || g.lost ? g : { ...g, hintsUsed: g.hintsUsed + 1 };
+        case 'fillNotes': {
+            if (g.paused || g.won || g.lost || g.revealed) return g;
+            const notes = [...g.notes];
+            let changed = false;
+            for (let i = 0; i < 81; i++) {
+                if (g.board[i]) continue;
+                let mask = 0x3fe;
+                for (const p of PEERS[i]) if (g.board[p]) mask &= ~bit(g.board[p]);
+                if (notes[i] !== mask) { notes[i] = mask; changed = true; }
+            }
+            return changed ? commit(g, [...g.board], notes) : g;
+        }
         case 'solve': return g.revealed || g.paused ? g : commit(g, [...g.solution], new Array(81).fill(0), { revealed: true });
         case 'undo': {
-            if (g.paused) return g;
+            if (g.paused || g.lost) return g;
             const prev = g.past[g.past.length - 1];
             if (!prev) return g;
             return { ...g, board: [...prev.board], notes: [...prev.notes], past: g.past.slice(0, -1), future: [snap(g), ...g.future], won: false };
         }
         case 'redo': {
-            if (g.paused) return g;
+            if (g.paused || g.lost) return g;
             const next = g.future[0];
             if (!next) return g;
             const out = { ...g, board: [...next.board], notes: [...next.notes], past: [...g.past, snap(g)], future: g.future.slice(1) };
@@ -100,13 +118,13 @@ export function reducer(g: Game | null, a: Action): Game | null {
             return out;
         }
         case 'erase': {
-            if (g.paused || g.puzzle[a.cell] || (!g.board[a.cell] && !g.notes[a.cell])) return g;
+            if (g.paused || g.lost || g.puzzle[a.cell] || (!g.board[a.cell] && !g.notes[a.cell])) return g;
             const board = [...g.board], notes = [...g.notes];
             board[a.cell] = 0; notes[a.cell] = 0;
             return commit(g, board, notes);
         }
         case 'input': {
-            if (g.paused || g.puzzle[a.cell] || g.won || g.revealed) return g;
+            if (g.paused || g.lost || g.puzzle[a.cell] || g.won || g.revealed) return g;
             const board = [...g.board], notes = [...g.notes];
             if (a.notes) {
                 if (board[a.cell]) return g; // pencil marks only go in empty cells
@@ -118,7 +136,8 @@ export function reducer(g: Game | null, a: Action): Game | null {
             notes[a.cell] = 0;
             if (a.autoClear) for (const p of PEERS[a.cell]) notes[p] &= ~bit(a.digit);
             const wrong = a.digit !== g.solution[a.cell];
-            return commit(g, board, notes, { mistakes: g.mistakes + (wrong ? 1 : 0) });
+            const mistakes = g.mistakes + (wrong ? 1 : 0);
+            return commit(g, board, notes, { mistakes, lost: g.limit > 0 && mistakes >= g.limit });
         }
     }
 }
@@ -127,13 +146,13 @@ export function reducer(g: Game | null, a: Action): Game | null {
 
 interface Saved {
     v: 1; level: Level; seed: string; kind: Kind; board: Board; notes: Notes; past: Snapshot[];
-    seconds: number; started: boolean; revealed: boolean; hintsUsed: number; mistakes: number; won: boolean;
+    seconds: number; started: boolean; revealed: boolean; hintsUsed: number; mistakes: number; won: boolean; limit?: number; lost?: boolean;
 }
 
 export function serialize(g: Game): string {
     const s: Saved = {
         v: 1, level: g.level, seed: g.seed, kind: g.kind, board: g.board, notes: g.notes, past: g.past.slice(-SAVE_HISTORY),
-        seconds: g.seconds, started: g.started, revealed: g.revealed, hintsUsed: g.hintsUsed, mistakes: g.mistakes, won: g.won,
+        seconds: g.seconds, started: g.started, revealed: g.revealed, hintsUsed: g.hintsUsed, mistakes: g.mistakes, won: g.won, limit: g.limit, lost: g.lost,
     };
     return JSON.stringify(s);
 }
@@ -147,10 +166,11 @@ export function restore(raw: string | null): Game | null {
         const s = JSON.parse(raw) as Partial<Saved>;
         if (s.v !== 1 || !LEVELS.includes(s.level as Level) || typeof s.seed !== 'string' || !s.seed || s.seed.length > 60) return null;
         if (!okCells(s.board, 9) || !okCells(s.notes, 1022)) return null;
-        const g = newGame(s.seed, s.level as Level, s.kind === 'daily' || s.kind === 'shared' ? s.kind : 'random');
+        const limit = (MISTAKE_LIMITS as readonly number[]).includes(Number(s.limit)) ? Number(s.limit) : 0;
+        const g = newGame(s.seed, s.level as Level, s.kind === 'daily' || s.kind === 'shared' ? s.kind : 'random', limit);
         if (!s.board.every((v, i) => !g.puzzle[i] || v === g.puzzle[i])) return null; // clues must match the puzzle
         const past = Array.isArray(s.past) ? s.past.filter((p) => okCells(p?.board, 9) && okCells(p?.notes, 1022)) : [];
-        return { ...g, board: s.board, notes: s.notes, past, seconds: Math.max(0, Math.floor(Number(s.seconds) || 0)), started: !!s.started, revealed: !!s.revealed, hintsUsed: Math.max(0, Number(s.hintsUsed) || 0), mistakes: Math.max(0, Number(s.mistakes) || 0), won: !!s.won };
+        return { ...g, board: s.board, notes: s.notes, past, seconds: Math.max(0, Math.floor(Number(s.seconds) || 0)), started: !!s.started, revealed: !!s.revealed, hintsUsed: Math.max(0, Number(s.hintsUsed) || 0), mistakes: Math.max(0, Number(s.mistakes) || 0), won: !!s.won, lost: !!s.lost && limit > 0 };
     } catch {
         return null;
     }

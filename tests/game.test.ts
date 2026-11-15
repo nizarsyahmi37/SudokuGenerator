@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailyInfo, newGame, parseShare, reducer, restore, serialize, shareLink, type Game } from '../lib/game';
+import { dailyInfo, newGame, noteDigits, parseShare, reducer, restore, serialize, shareLink, type Game } from '../lib/game';
 import { emptyStats, recordStart, recordWin, streaks } from '../lib/stats';
 
 const fresh = () => newGame('TEST-GAME', 3, 'random');
@@ -126,5 +126,47 @@ describe('pausing', () => {
         expect(run(fresh(), { type: 'pause' }).paused).toBe(false);
         const g = run(fresh(), { type: 'start' }, { type: 'pause' });
         expect(restore(serialize(g))?.paused).toBe(false);
+    });
+});
+
+describe('automatic notes', () => {
+    it('fills each empty cell with the digits its row, column and box do not use, and can be undone', () => {
+        let g = run(fresh(), { type: 'fillNotes' });
+        const cell = empty(g);
+        const candidates = Array.from({ length: 9 }, (_, i) => i + 1).filter((d) => {
+            return g.board.every((v, i) => v !== d || !(Math.floor(i / 9) === Math.floor(cell / 9) || i % 9 === cell % 9 || (Math.floor(i / 27) === Math.floor(cell / 27) && Math.floor((i % 9) / 3) === Math.floor((cell % 9) / 3))));
+        });
+        expect(noteDigits(g.notes[cell])).toEqual(candidates);
+        expect(candidates).toContain(g.solution[cell]);
+        for (let i = 0; i < 81; i++) if (g.board[i]) expect(g.notes[i]).toBe(0);
+        g = run(g, { type: 'undo' });
+        expect(g.notes.every((n) => n === 0)).toBe(true);
+    });
+});
+
+describe('mistake limit', () => {
+    const wrongFor = (g: Game, cell: number) => (g.solution[cell] === 9 ? 1 : g.solution[cell] + 1);
+    it('loses the game when the limit is reached and then stops accepting moves', () => {
+        let g = newGame('LIMIT-1', 3, 'random', 3);
+        g = run(g, { type: 'start' });
+        const cells = g.board.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+        for (let k = 0; k < 2; k++) g = run(g, { type: 'input', cell: cells[k], digit: wrongFor(g, cells[k]), notes: false, autoClear: true });
+        expect(g.lost).toBe(false);
+        g = run(g, { type: 'input', cell: cells[2], digit: wrongFor(g, cells[2]), notes: false, autoClear: true });
+        expect(g.lost).toBe(true);
+        const before = g.board[cells[3]];
+        expect(run(g, { type: 'input', cell: cells[3], digit: g.solution[cells[3]], notes: false, autoClear: true }).board[cells[3]]).toBe(before);
+        expect(run(g, { type: 'tick' }).seconds).toBe(g.seconds);
+        expect(run(g, { type: 'solve' }).revealed).toBe(true);
+    });
+
+    it('never loses without a limit, and the limit survives saving', () => {
+        let g = run(newGame('LIMIT-2', 3, 'random'), { type: 'start' });
+        const cells = g.board.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+        for (let k = 0; k < 6; k++) g = run(g, { type: 'input', cell: cells[k], digit: wrongFor(g, cells[k]), notes: false, autoClear: true });
+        expect(g.lost).toBe(false);
+        const limited = newGame('LIMIT-3', 3, 'random', 5);
+        expect(restore(serialize(limited))?.limit).toBe(5);
+        expect(restore(serialize({ ...limited, limit: 7 }))?.limit).toBe(0);
     });
 });

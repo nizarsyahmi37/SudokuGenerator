@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
 import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, findConflicts, type Level } from '../lib/sudoku';
-import { dailyInfo, newGame, noteDigits, parseShare, reducer, restore, serialize, shareLink, type Action, type Game as GameState } from '../lib/game';
+import { MISTAKE_LIMITS, dailyInfo, newGame, noteDigits, parseShare, reducer, restore, serialize, shareLink, type Action, type Game as GameState } from '../lib/game';
 import { TECHNIQUE_NAMES, cellName, explainNext, type Hint } from '../lib/logic';
 import { randomSeed } from '../lib/rng';
 import { emptyStats, formatTime, loadStats, recordStart, recordWin, saveStats, streaks, totals, type Stats } from '../lib/stats';
@@ -23,6 +23,20 @@ const TABS: Array<{ id: Tab; label: string }> = [
     { id: 'book', label: 'Make a book' },
 ];
 const SAVE_KEY = 'sudoku-game-v1';
+const LIMIT_KEY = 'sudoku-mistake-limit';
+const SHORTCUTS: Array<[string, string]> = [
+    ['Arrow keys', 'Move between cells'],
+    ['Home / End', 'First / last cell in the row'],
+    ['Page Up / Page Down', 'Top / bottom cell in the column'],
+    ['1 to 9', 'Place a digit, or a pencil note when notes are on'],
+    ['Backspace, Delete or 0', 'Erase the cell'],
+    ['N', 'Turn pencil notes on or off'],
+    ['F', 'Fill every empty cell with its possible digits'],
+    ['H', 'Ask for a hint'],
+    ['P', 'Pause or resume'],
+    ['Ctrl+Z / Ctrl+Y', 'Undo / redo (Cmd on a Mac)'],
+    ['?', 'Show or hide this list'],
+];
 type Msg = { text: string; kind: 'ok' | 'err' | '' };
 
 export default function Game() {
@@ -39,6 +53,8 @@ export default function Game() {
     const [format, setFormat] = useState<ExportFormat>('pdf');
     const [exporting, setExporting] = useState(false);
     const [plainExport, setPlainExport] = useState(false);
+    const [limit, setLimit] = useState<number>(0);
+    const [helpOpen, setHelpOpen] = useState(false);
 
     const { fx: fxc, mode, theme, effects } = useTheme();
     const fxcRef = useRef(fxc);
@@ -55,11 +71,14 @@ export default function Game() {
     useEffect(() => {
         if (booted.current) return; // React strict mode runs effects twice in development; start-up must only happen once
         booted.current = true;
-        /* eslint-disable react-hooks/set-state-in-effect -- everything here reads browser storage or the URL, which only exists on the client */
         setStats(loadStats());
+        let lim = 0;
+        try { lim = Number(localStorage.getItem(LIMIT_KEY)) || 0; } catch { /* storage unavailable */ }
+        if (!(MISTAKE_LIMITS as readonly number[]).includes(lim)) lim = 0;
+        setLimit(lim);
         const shared = parseShare(window.location.search);
         if (shared) {
-            dispatch({ type: 'load', game: newGame(shared.seed, shared.level, 'shared') });
+            dispatch({ type: 'load', game: newGame(shared.seed, shared.level, 'shared', lim) });
             setMessage({ text: `Loaded a shared puzzle: level ${shared.level}.`, kind: '' });
             window.history.replaceState(null, '', window.location.pathname);
             return;
@@ -70,9 +89,8 @@ export default function Game() {
             dispatch({ type: 'load', game: saved });
             setMessage({ text: saved.won ? 'Welcome back. That puzzle was solved.' : 'Welcome back. Your game was restored.', kind: '' });
         } else {
-            dispatch({ type: 'load', game: newGame(randomSeed(), 5, 'random') });
+            dispatch({ type: 'load', game: newGame(randomSeed(), 5, 'random', lim) });
         }
-        /* eslint-enable react-hooks/set-state-in-effect */
     }, []);
 
     // ---- keep the clock running and the save up to date ----
@@ -145,7 +163,7 @@ export default function Game() {
     }, [game?.board, conflicts]);
     const filledCount = game ? game.board.filter(Boolean).length : 0;
     const full = !!game && !game.revealed && game.board.every(Boolean);
-    const autoMessage: Msg | null = full ? (game.won ? { text: 'Solved! Well done.', kind: 'ok' } : { text: 'The board is full, but something is wrong.', kind: 'err' }) : null;
+    const autoMessage: Msg | null = game?.lost ? { text: `Game over: ${game.mistakes} mistakes. Start a new game, or press Solve to see the answer.`, kind: 'err' } : full ? (game.won ? { text: 'Solved! Well done.', kind: 'ok' } : { text: 'The board is full, but something is wrong.', kind: 'err' }) : null;
     const shown = autoMessage ?? message;
 
     const place = (digit: number) => {
@@ -184,9 +202,12 @@ export default function Game() {
         else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') { e.preventDefault(); erase(); }
         else if (e.key.toLowerCase() === 'n') { e.preventDefault(); setNotesMode((v) => !v); }
         else if (e.key.toLowerCase() === 'p') { e.preventDefault(); act({ type: 'pause' }); }
+        else if (e.key.toLowerCase() === 'f') { e.preventDefault(); fillNotes(); }
+        else if (e.key.toLowerCase() === 'h') { e.preventDefault(); askHint(); }
+        else if (e.key === '?') { e.preventDefault(); setHelpOpen((v) => !v); }
     };
     const resume = () => { act({ type: 'resume' }); requestAnimationFrame(() => cellRefs.current[selected ?? 0]?.focus()); };
-    const canPause = !!game && game.started && !game.won && !game.revealed;
+    const canPause = !!game && game.started && !game.won && !game.lost && !game.revealed;
 
     const check = () => {
         if (!game) return;
@@ -197,7 +218,7 @@ export default function Game() {
     };
 
     const askHint = () => {
-        if (!game || game.won || game.revealed) return;
+        if (!game || game.won || game.lost || game.revealed) return;
         touch();
         act({ type: 'hint' });
         const h = explainNext(game.board, game.solution);
@@ -222,10 +243,12 @@ export default function Game() {
         setMessage({ text: 'Solution shown.', kind: '' });
     };
 
-    const newRandom = (level: Level) => begin(newGame(randomSeed(), level, 'random'));
+    const newRandom = (level: Level) => begin(newGame(randomSeed(), level, 'random', limit));
+    const chooseLimit = (n: number) => { setLimit(n); try { localStorage.setItem(LIMIT_KEY, String(n)); } catch { /* storage unavailable */ } };
+    const fillNotes = () => { if (game && !game.won && !game.lost && !game.revealed) { act({ type: 'fillNotes' }); setNotesMode(true); setMessage({ text: 'Filled in every possible digit as a note. Notes are on.', kind: '' }); } };
     const playDaily = () => {
         if (game && game.kind === 'daily' && game.seed === today.seed) { setMessage({ text: "You are already on today's puzzle.", kind: '' }); return; }
-        begin(newGame(today.seed, today.level, 'daily'));
+        begin(newGame(today.seed, today.level, 'daily', limit));
         setMessage({ text: `Today's puzzle: level ${today.level}. Everyone gets the same one.`, kind: '' });
     };
     const share = async () => {
@@ -318,7 +341,7 @@ export default function Game() {
                             <span className="stat">{filledCount}/81</span>
                         </div>
                         <progress className="progress" max={81} value={filledCount} aria-label="Cells filled">{filledCount} of 81</progress>
-                        {game && <p className="code">{game.kind === 'daily' ? 'Daily puzzle' : game.kind === 'shared' ? 'Shared puzzle' : 'Puzzle'} <b>{game.seed}</b> · {game.mistakes} mistake{game.mistakes === 1 ? '' : 's'} · {game.hintsUsed} hint{game.hintsUsed === 1 ? '' : 's'}</p>}
+                        {game && <p className="code">{game.kind === 'daily' ? 'Daily puzzle' : game.kind === 'shared' ? 'Shared puzzle' : 'Puzzle'} <b>{game.seed}</b> · {game.limit ? `${game.mistakes} of ${game.limit} mistakes` : `${game.mistakes} mistake${game.mistakes === 1 ? '' : 's'}`} · {game.hintsUsed} hint{game.hintsUsed === 1 ? '' : 's'}</p>}
 
                         <div className="grid-wrap">
                         <div className={`grid${game?.won ? ' won' : ''}${game?.paused ? ' paused' : ''}`} inert={!!game?.paused} role="grid" aria-label="Sudoku board. Use arrow keys to move and number keys to fill. Press N to switch pencil notes." onKeyDown={onGridKey}>
@@ -386,6 +409,13 @@ export default function Game() {
                             <div className="toolbar">
                                 <button type="button" className="primary" onClick={() => newRandom((game?.level ?? 5) as Level)}>New game</button>
                             </div>
+                            <div className="field-row">
+                                <label htmlFor={`${uid}-limit`}>Mistake limit</label>
+                                <select id={`${uid}-limit`} value={limit} onChange={(e) => chooseLimit(Number(e.target.value))}>
+                                    {MISTAKE_LIMITS.map((n) => <option key={n} value={n}>{n ? `${n} mistakes` : 'No limit'}</option>)}
+                                </select>
+                            </div>
+                            <p className="hint">{limit ? `A game is lost after ${limit} wrong digits. Applies to the next new game.` : 'Unlimited mistakes. Applies to the next new game.'}</p>
                             <div className="tools two">
                                 <button type="button" onClick={playDaily}>Daily puzzle{dailyDone ? ' ✓' : ''}</button>
                                 <button type="button" onClick={share}>Share puzzle</button>
@@ -411,13 +441,25 @@ export default function Game() {
                             <div className="tools">
                                 <button type="button" onClick={check}>Check</button>
                                 <button type="button" onClick={askHint}>Hint</button>
-                                <button type="button" onClick={solve}>Solve</button>
+                                <button type="button" onClick={fillNotes}>Fill notes</button>
                             </div>
+                            <div className="tools two">
+                                <button type="button" onClick={solve}>Solve</button>
+                                <button type="button" aria-expanded={helpOpen} aria-controls={`${uid}-keys`} onClick={() => setHelpOpen((v) => !v)}>Keyboard shortcuts</button>
+                            </div>
+                            {helpOpen && (
+                                <div id={`${uid}-keys`} className="shortcuts">
+                                    <table>
+                                        <caption className="sr-only">Keyboard shortcuts</caption>
+                                        <tbody>{SHORTCUTS.map(([k, d]) => <tr key={k}><th scope="row"><kbd>{k}</kbd></th><td>{d}</td></tr>)}</tbody>
+                                    </table>
+                                </div>
+                            )}
                             <label className="check" style={{ marginTop: 12 }}>
                                 <input type="checkbox" checked={autoClear} onChange={(e) => setAutoClear(e.target.checked)} />
                                 <span>Remove notes automatically</span>
                             </label>
-                            <p className="hint">Select a cell, then type 1–9. N turns pencil notes on or off, Ctrl+Z undoes and Ctrl+Y redoes. Arrow keys move. The small number on each key is how many are still to place.</p>
+                            <p className="hint">Select a cell, then type 1–9. Press ? for all the keyboard shortcuts. The small number on each key is how many are still to place.</p>
                         </section>
 
                         <section className="panel" aria-labelledby={`${uid}-h-stats`}>

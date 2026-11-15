@@ -38,6 +38,7 @@ export default function PrivacyPage() {
                     <tr><th scope="row">sudoku-theme, sudoku-mode</th><td>Remembers your theme and your light or dark choice.</td><td>Until you clear site data</td></tr>
                     <tr><th scope="row">sudoku-game-v1</th><td>Saves your current puzzle (its seed, your numbers, notes and timer) so you can resume after a refresh.</td><td>Until you clear site data or start another puzzle</td></tr>
                     <tr><th scope="row">sudoku-stats-v1</th><td>Your solved counts, best times and daily streak, shown in the Statistics panel.</td><td>Until you reset statistics or clear site data</td></tr>
+                    <tr><th scope="row">sudoku-mistake-limit</th><td>The mistake limit you chose for new games.</td><td>Until you clear site data</td></tr>
                     <tr><th scope="row">sudoku-effects</th><td>Remembers whether animated backgrounds are on.</td><td>Until you clear site data</td></tr>
                     {ADS_ENABLED && <tr><th scope="row">sudoku-consent</th><td>Remembers your choice about ads, so we do not ask again on every visit.</td><td>Until you clear site data or change it</td></tr>}
                 </tbody>

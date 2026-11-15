@@ -272,3 +272,13 @@ table.stats thead th { background: var(--panel-2); }
 .file-btn span { display: grid; place-items: center; padding: 8px 14px; min-height: 40px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); font-weight: 600; cursor: pointer; }
 .file-btn:hover span { background: var(--bg-glow); }
 .file-btn:focus-within span { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* ---- mistake limit and shortcuts ---- */
+.field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.field-row label { font-weight: 600; }
+.field-row select { min-height: 40px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); color: var(--text); font: inherit; }
+.shortcuts { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); }
+.shortcuts table { width: 100%; border-collapse: collapse; }
+.shortcuts th, .shortcuts td { padding: 4px 6px; text-align: left; vertical-align: top; font-size: 0.9rem; }
+.shortcuts th { width: 42%; font-weight: 400; }
+.shortcuts kbd { display: inline-block; padding: 1px 7px; border: 1px solid var(--line-box); border-radius: 6px; background: var(--panel); font: inherit; font-weight: 700; }
