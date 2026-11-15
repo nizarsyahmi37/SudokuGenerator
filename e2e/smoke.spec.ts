@@ -130,3 +130,28 @@ test('the error report endpoint accepts a clean report and refuses everything el
     expect((await request.post('/api/report', { data: { ...ok, message: 'x'.repeat(6000) } })).status()).toBe(413);
     expect((await request.post('/api/report', { data: ok, headers: { origin: 'https://evil.example' } })).status()).toBe(403);
 });
+
+test('scripts run only with a fresh nonce: no unsafe-inline for scripts, and the nonce changes on every request', async ({ request, page }) => {
+    const csp = async () => (await request.get('/')).headers()['content-security-policy'];
+    const a = await csp(), b = await csp();
+    const script = (c: string) => c.split(';').map((d) => d.trim()).find((d) => d.startsWith('script-src'))!;
+    expect(script(a)).toMatch(/'nonce-[A-Za-z0-9+/=]{20,}'/);
+    expect(script(a)).toContain("'strict-dynamic'");
+    expect(script(a)).not.toContain("'unsafe-inline'");
+    expect(script(a)).not.toContain("'unsafe-eval'");
+    expect(/'nonce-([^']+)'/.exec(a)![1]).not.toBe(/'nonce-([^']+)'/.exec(b)![1]);
+    await page.goto('/');
+    // Every script the server wrote into the page carries a nonce.
+    const bare = await page.evaluate(() => [...document.querySelectorAll('script:not([src]):not([type="application/ld+json"])')].filter((s) => !(s as HTMLScriptElement).nonce && !s.getAttribute('nonce')).length);
+    expect(bare).toBe(0);
+    // And a parser-inserted inline script without the nonce is refused (an iframe's srcdoc inherits the page's policy).
+    const ran = await page.evaluate(async () => {
+        (window as unknown as { __x: number }).__x = 0;
+        const f = document.createElement('iframe');
+        f.srcdoc = '<script>parent.__x = 1</script>';
+        document.body.appendChild(f);
+        await new Promise((r) => { f.onload = r; });
+        return (window as unknown as { __x: number }).__x;
+    });
+    expect(ran).toBe(0);
+});

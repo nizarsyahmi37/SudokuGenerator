@@ -72,14 +72,17 @@ test('200% zoom: the main controls stay visible and usable', async ({ page }) =>
     await expect(page.locator('.hint-card')).toBeVisible();
 });
 
+/** Adds CSS the way a user style sheet would. A constructed style sheet is allowed under the nonce-based Content-Security-Policy; a <style> element is not. */
+const addCss = (page: import('@playwright/test').Page, css: string) => page.evaluate((c) => { const sheet = new CSSStyleSheet(); sheet.replaceSync(c); document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]; }, css);
+
 test('text spacing overrides (WCAG 1.4.12) do not clip or hide content', async ({ page }) => {
     await fresh(page);
     await page.goto('/privacy');
-    await page.addStyleTag({ content: '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }' });
+    await addCss(page, '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
     await page.goto('/');
-    await page.addStyleTag({ content: '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }' });
+    await addCss(page, '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }');
     await expect(page.getByRole('button', { name: 'Hint', exact: true })).toBeVisible();
 });
 

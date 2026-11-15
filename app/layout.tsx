@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { Orbitron, Rajdhani } from 'next/font/google';
 import Providers from '../components/Providers';
 import SiteFooter from '../components/SiteFooter';
@@ -48,12 +49,14 @@ const JSON_LD = JSON.stringify({
 /** Runs before first paint so the saved theme, light/dark mode and effects setting never flash. */
 const BOOT = `(function(){var d=document.documentElement;try{var t=localStorage.getItem('sudoku-theme');if(t&&/^[a-z]+$/.test(t))d.dataset.theme=t;var m=localStorage.getItem('sudoku-mode')||'system';var dark=matchMedia('(prefers-color-scheme: dark)').matches;d.dataset.mode=m==='light'||m==='dark'?m:(dark?'dark':'light');var l=localStorage.getItem('sudoku-locale');if(l&&/^[a-z]{2}$/.test(l)){d.lang=l;d.dir=l==='ar'?'rtl':'ltr';}var e=localStorage.getItem('sudoku-effects');d.dataset.effects=e?e:(matchMedia('(prefers-reduced-motion: reduce)').matches?'off':'on');}catch(x){d.dataset.mode=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';d.dataset.effects='on';}})();`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+    // Set by proxy.ts for every request. Reading it makes pages render per request, which is what lets the nonce change each time.
+    const nonce = (await headers()).get('x-nonce') ?? undefined;
     return (
         <html lang="en" className={`${display.variable} ${body.variable}`} suppressHydrationWarning>
             <head>
-                <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
-                <script dangerouslySetInnerHTML={{ __html: BOOT }} />
+                <style nonce={nonce} dangerouslySetInnerHTML={{ __html: themeCss() }} />
+                <script nonce={nonce} dangerouslySetInnerHTML={{ __html: BOOT }} />
                 <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD }} />
             </head>
             <body>
