@@ -84,6 +84,8 @@ export interface BookConfig {
     print: PrintOptions | null;
     copyright: Copyright;
     cover: CoverOptions;
+    /** Print only: black and white, no coloured pages, fills or pictures, to save ink. */
+    inkSaver: boolean;
     /** Short text for the back cover (print) */
     backCover: string;
 }

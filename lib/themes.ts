@@ -44,6 +44,13 @@ export const THEME_KEYS = Object.keys(SEEDS);
 export const DEFAULT_THEME = 'cosmos';
 export const themeLabel = (key: string) => (SEEDS[key] || SEEDS[DEFAULT_THEME]).label;
 
+/** Black on white with no tints, for the print ink-saving mode. */
+export const INK_SAVER: Theme = {
+    label: 'Ink saver', mode: 'light', motif: 'classic',
+    page: [255, 255, 255], card: [255, 255, 255], ink: [0, 0, 0], muted: [70, 70, 70],
+    primary: [0, 0, 0], accent: [64, 64, 64], filled: [64, 64, 64], given: [0, 0, 0],
+};
+
 const WHITE: RGB = [255, 255, 255], BLACK: RGB = [0, 0, 0];
 const cache = new Map<string, Theme>();
 

@@ -94,4 +94,14 @@ describe('book generator', () => {
             }
         }
     });
+
+    it('ink saver: black and white, same layout, no cover picture needed', async () => {
+        const print = { bleedMm: 3.175, bleedEdges: 'outer' as const, cropMarks: false, paper: 'white' as const };
+        const color = await buildBook(smallBook({ print }), fonts);
+        const mono = await buildBook(smallBook({ print, inkSaver: true, cover: { ...DEFAULT_COVER, image: { bytes: makePng(), mime: 'image/png', alt: '' } } }), fonts);
+        expect(mono.pages).toBe(color.pages);
+        expect(mono.cover).toBeDefined();
+        expect(await pageTexts(mono.interior)).toEqual(await pageTexts(color.interior));
+        expect(mono.interior.length).toBeLessThan(color.interior.length * 1.5); // sanity: no pictures embedded
+    });
 });

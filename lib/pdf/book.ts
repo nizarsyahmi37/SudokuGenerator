@@ -1,7 +1,7 @@
 import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, generatePuzzle, type Level, type Puzzle } from '../sudoku';
 import { puzzleRng, normalizeSeed, seeded } from '../rng';
 import { contrast, ensure, isDark, mix, readableOn, type RGB } from '../palette';
-import { getTheme, type Theme } from '../themes';
+import { INK_SAVER, getTheme, type Theme } from '../themes';
 import { kdpGutterMm, planPages, spineWidthMm, totalPuzzles, type BookConfig, type BookResult, type Progress } from '../bookConfig';
 import { Kit, type FontSet } from './kit';
 
@@ -66,7 +66,7 @@ function drawFrontCover(k: Kit, t: Theme, cfg: BookConfig, o: FrontCoverArgs) {
     const spot = spotOf(t);
     const title = cfg.title.trim() || 'Sudoku';
     const author = cfg.author.trim();
-    const img = cfg.cover.image;
+    const img = cfg.print && cfg.inkSaver ? null : cfg.cover.image; // pictures use ink, so ink-saver covers skip them
     const { x, y, w, h } = o;
     if (img) {
         const draw = () => k.image(img.bytes, x, y - o.bleedTop, w + o.bleedRight, h * 0.5 + o.bleedTop);
@@ -113,7 +113,8 @@ function drawFrontCover(k: Kit, t: Theme, cfg: BookConfig, o: FrontCoverArgs) {
 }
 
 export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Progress): Promise<BookResult> {
-    const t = getTheme(cfg.theme, cfg.mode);
+    const ink = !!cfg.print && cfg.inkSaver;
+    const t = ink ? INK_SAVER : getTheme(cfg.theme, cfg.mode);
     const spot = spotOf(t);
     const seed = normalizeSeed(cfg.seed);
     const plan = planPages(cfg);
@@ -126,7 +127,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
     const author = cfg.author.trim();
     const faint = ensure(mix(t.page, t.ink, 0.4), t.page, 3.1);
     const muted: RGB = lp ? t.ink : t.muted; // large print: no low-contrast secondary text
-    const ct = coverTheme(t, cfg.cover);
+    const ct = ink ? t : coverTheme(t, cfg.cover);
     const print = cfg.print;
 
     // ---- 1. Generate puzzles (each one from its own seeded stream, so the book is repeatable) ----
@@ -440,6 +441,7 @@ interface CoverArgs { cfg: BookConfig; t: Theme; fonts: FontSet; pages: number; 
 async function buildCover({ cfg, t, fonts, pages, spineMm, bleed, slug, total, seed }: CoverArgs): Promise<Uint8Array> {
     const TW = cfg.pageWidth, TH = cfg.pageHeight;
     const spot = spotOf(t);
+    const inkSaver = cfg.inkSaver;
     const title = cfg.title.trim() || 'Sudoku';
     const author = cfg.author.trim();
     const sc = Math.max(Math.min(TW / 148, TH / 210), 0.7);
@@ -473,10 +475,13 @@ async function buildCover({ cfg, t, fonts, pages, spineMm, bleed, slug, total, s
     k.artifact(() => k.rect(TW - 6.35 - 50.8, H - 6.35 - 30.5, 50.8, 30.5, { fill: [255, 255, 255] }));
 
     // spine (needs 79+ pages for text, as most print-on-demand services require)
-    k.artifact(() => k.rect(TW, -bleed, spineMm, H + 2 * bleed, { fill: spot }));
+    k.artifact(() => {
+        if (inkSaver) { k.line(TW, 0, TW, H, spot, 0.3); k.line(TW + spineMm, 0, TW + spineMm, H, spot, 0.3); }
+        else k.rect(TW, -bleed, spineMm, H + 2 * bleed, { fill: spot });
+    });
     if (pages >= 79 && spineMm >= 6) {
-        const onSpot = readableOn(spot);
-        if (contrast(onSpot, spot) >= 4.5) {
+        const onSpot = inkSaver ? t.ink : readableOn(spot);
+        if (inkSaver || contrast(onSpot, spot) >= 4.5) {
             const size = Math.min(14, spineMm * 1.6);
             const full = author ? `${title}  ·  ${author}` : title;
             k.tag('P', () => k.rotatedText(full, TW + spineMm / 2 + size * 0.17, 14, 90, { font: 'serifBold', size, color: onSpot }));

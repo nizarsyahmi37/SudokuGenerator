@@ -43,6 +43,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     const [bleedMm, setBleedMm] = useState(Number(DEFAULT_BLEED_MM.toFixed(3)));
     const [bleedEdges, setBleedEdges] = useState<'outer' | 'all'>('outer');
     const [cropMarks, setCropMarks] = useState(false);
+    const [inkSaver, setInkSaver] = useState(false);
     const [paperStock, setPaperStock] = useState<Paper>('white');
     const [title, setTitle] = useState('Sudoku Puzzle Book');
     const [author, setAuthor] = useState('');
@@ -107,9 +108,10 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
         counts, pageWidth: w, pageHeight: h, puzzlesPerPage: largePrint ? 1 : perPage, title, author, theme, mode: paper, seed: seedNorm, largePrint,
         print: printing ? { bleedMm, bleedEdges, cropMarks, paper: paperStock } : null,
         copyright: { enabled: copyrightOn, holder, year, isbn },
+        inkSaver,
         cover: { ...DEFAULT_COVER, subtitle: coverSubtitle, bgColor: customColours ? coverBg : '', accentColor: customColours ? coverAccent : '', showGrid, image: coverImage },
         backCover,
-    }), [counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
+    }), [counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, inkSaver, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
     // The picture is left out of the key (it could be megabytes); its size and description stand in for it.
     const key = JSON.stringify({ ...cfg, cover: { ...cfg.cover, image: coverImage ? { n: coverImage.bytes.length, alt: coverImage.alt } : null } });
     const plan = planPages(cfg);
@@ -228,6 +230,10 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         </fieldset>
                         <label className="field">Bleed size (mm)
                             <input type="number" min={0} max={10} step={0.025} value={bleedMm} onChange={(e) => setBleedMm(Number(e.target.value))} aria-invalid={!validBleed} />
+                        </label>
+                        <label className="check">
+                            <input type="checkbox" checked={inkSaver} onChange={(e) => setInkSaver(e.target.checked)} />
+                            <span>Ink saver: black and white only, no coloured pages, fills or cover picture</span>
                         </label>
                         <label className="check">
                             <input type="checkbox" checked={cropMarks} onChange={(e) => setCropMarks(e.target.checked)} />
