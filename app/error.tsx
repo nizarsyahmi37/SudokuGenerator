@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import { reportError } from '../lib/report';
 
 /** Shown when something in a page fails while it runs. The game keeps its progress in local storage, so a retry is safe. */
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-    useEffect(() => { console.error(error); }, [error]);
+    useEffect(() => { console.error(error); reportError('page', error); }, [error]);
     return (
         <div className="app">
             <main id="main" tabIndex={-1} className="panel legal" role="alert">

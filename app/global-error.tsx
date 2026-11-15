@@ -1,7 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
+import { reportError } from '../lib/report';
+
 /** Last-resort page for errors in the root layout itself. It has to bring its own html and body. */
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+    useEffect(() => { reportError('page', error); }, [error]);
     return (
         <html lang="en">
             <body style={{ margin: 0, fontFamily: 'system-ui, sans-serif', background: '#14213d', color: '#ffffff', minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16 }}>

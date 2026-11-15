@@ -27,6 +27,7 @@ export default function PrivacyPage() {
                 <li>If you share a puzzle link, it contains only the puzzle code and level, never your progress.</li>
                 <li>Puzzle books and exported boards (PDF, PNG, JPG) are created on your device, in a background process of your browser, and saved by you. We never receive them.</li>
                 <li>We run no analytics and no tracking of what you play or build.</li>
+                <li>If the site itself breaks in your browser, it sends us a short technical note: the error message, where in the code it happened, the page address without anything after a ? or #, the version of the site and your browser&apos;s user-agent text. It never includes puzzles, progress, settings or anything you typed. It goes to this site&apos;s own server log, not to any other company, and is used only to fix bugs.</li>
             </ul>
 
             <h2>Cookies and similar storage</h2>

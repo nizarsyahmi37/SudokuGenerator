@@ -121,3 +121,12 @@ test.describe('first visit follows the browser language', () => {
         await expect(page.getByRole('button', { name: 'Permainan baharu', exact: true })).toBeVisible();
     });
 });
+
+test('the error report endpoint accepts a clean report and refuses everything else', async ({ request }) => {
+    const ok = { kind: 'error', message: 'boom', stack: 'at f (a.js:1:1)', path: '/', build: 'test', agent: 'x' };
+    expect((await request.post('/api/report', { data: ok })).status()).toBe(204);
+    expect((await request.post('/api/report', { data: { ...ok, kind: 'nope' } })).status()).toBe(400);
+    expect((await request.post('/api/report', { data: 'not json', headers: { 'content-type': 'text/plain' } })).status()).toBe(400);
+    expect((await request.post('/api/report', { data: { ...ok, message: 'x'.repeat(6000) } })).status()).toBe(413);
+    expect((await request.post('/api/report', { data: ok, headers: { origin: 'https://evil.example' } })).status()).toBe(403);
+});
