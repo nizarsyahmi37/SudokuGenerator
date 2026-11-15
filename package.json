@@ -1,8 +1,7 @@
 {
     "name": "sudoku-generator",
     "version": "1.0.0",
-    "description": "Sudoku generator",
-    "main": "index.tsx",
+    "description": "Sudoku generator, player and printable puzzle book maker",
     "repository": "https://github.com/nizarsyahmi37/SudokuGenerator",
     "author": "Nizar Syahmi bin Nazlan <nizar@nizarsyahmi37.com>",
     "license": "MIT",
@@ -35,5 +34,9 @@
         "typescript": "npm:@typescript/typescript6@^6.0.2",
         "vite": "^8.3.8",
         "vitest": "^5.1.0"
+    },
+    "private": true,
+    "engines": {
+        "node": ">=20.19.0"
     }
 }
