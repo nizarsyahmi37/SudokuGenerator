@@ -1,0 +1,35 @@
+name: Bug report
+description: Something does not work as it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it happen?
+      options: [Playing a puzzle, Statistics or saved progress, Exporting a single board, Make a book (build or preview), Book PDF or print file, Languages or fonts, Themes or accessibility, Offline mode, Something else]
+    validations:
+      required: true
+  - type: input
+    id: code
+    attributes:
+      label: Puzzle code or book code
+      description: The code shown under the board (for example ABCD-1234 and the level), or the book code that starts with B1. It lets the exact puzzle or book be rebuilt.
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: Safari 19 on iPhone 17, Chrome 140 on Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: Screenshots help. Please do not paste personal information.
