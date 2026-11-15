@@ -50,7 +50,7 @@ yarn dev          # http://localhost:3000
 - **Unit tests** cover the solver and grading, seeding, the game state, statistics, colour contrast for all 20 theme and mode combinations, book codes, scripts, and the book generator (page counts, tagging, bleed, cover width, fallbacks).
 - **Browser tests** (`e2e/`) run against production builds, so the real Content-Security-Policy applies: keyboard use, the consent flow (with the AdSense network blocked), game features, axe-core scans of every view in several themes, reflow at 320 px, 200% zoom, text spacing, reduced motion, and the book builder end to end (build in the worker, preview, download, print mode, no-Worker fallback).
   Run `PW_CHANNEL=chrome yarn test:e2e` to use your installed Chrome; CI installs Playwright's Chromium.
-- **CI** (`.github/workflows/ci.yml`) runs lint, typecheck, unit tests and build, and the browser tests.
+- **CI** (`.github/workflows/ci.yml`) runs lint, typecheck, unit tests and build, and the browser tests. A weekly canary (`canary.yml`) repeats them on Ubuntu 26.04.
 - **PDF/UA:** `WRITE_SAMPLE_PDFS=1 yarn test tests/validation-pdfs.test.ts` writes sample PDFs to `artifacts/pdfs/` to open in veraPDF or PAC.
 - **Manual checks** that need a person (VoiceOver, NVDA, zoom, mobile, Acrobat, PAC, a proof print) are listed in [docs/manual-testing.md](docs/manual-testing.md).
 
