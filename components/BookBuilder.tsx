@@ -5,7 +5,8 @@ import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, type Level } from '../lib/sudoku
 import { DEFAULT_BLEED_MM, DEFAULT_COVER, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type CoverImage, type Paper } from '../lib/bookConfig';
 import { buildBookInWorker, type BookJob } from '../lib/bookClient';
 import { downloadBlob, pdfBlob } from '../lib/download';
-import { normalizeSeed, randomSeed } from '../lib/rng';
+import { cleanSeed, decodeBookCode, encodeBookCode } from '../lib/bookCode';
+import { randomSeed } from '../lib/rng';
 import { THEME_KEYS, getTheme, themeLabel, type Mode } from '../lib/themes';
 import { css } from '../lib/palette';
 import BookPreview from './BookPreview';
@@ -103,7 +104,20 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     const total = totalPuzzles(counts);
     const validSize = w >= 60 && h >= 60 && w <= 600 && h <= 600;
     const validBleed = bleedMm >= 0 && bleedMm <= 10;
-    const seedNorm = normalizeSeed(seed);
+    const seedNorm = cleanSeed(seed);
+    const bookCode = encodeBookCode(seedNorm || 'SEED', counts);
+    const [codeInput, setCodeInput] = useState('');
+    const [codeMsg, setCodeMsg] = useState<{ text: string; error: boolean }>({ text: '', error: false });
+    const [codeCopied, setCodeCopied] = useState(false);
+    const applyCode = () => {
+        const d = decodeBookCode(codeInput);
+        if ('error' in d) { setCodeMsg({ text: d.error, error: true }); return; }
+        setSeed(d.seed); setCounts(d.counts); setCodeInput('');
+        setCodeMsg({ text: 'Code applied: the seed and puzzle counts were restored.', error: false });
+    };
+    const copyCode = async () => {
+        try { await navigator.clipboard.writeText(bookCode); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); } catch { /* clipboard unavailable */ }
+    };
 
     const cfg: BookConfig = useMemo(() => ({
         counts, pageWidth: w, pageHeight: h, puzzlesPerPage: largePrint ? 1 : perPage, title, author, theme, mode: paper, seed: seedNorm, largePrint,
@@ -180,6 +194,19 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                     <button type="button" onClick={() => setSeed(randomSeed())}>New seed</button>
                     <button type="button" onClick={copySeed}>{copied ? 'Copied' : 'Copy seed'}</button>
                 </div>
+                <div className="seed">
+                    <label className="field">Book code (seed and puzzle counts)
+                        <input type="text" readOnly value={bookCode} onFocus={(e) => e.currentTarget.select()} spellCheck={false} />
+                    </label>
+                    <button type="button" onClick={copyCode}>{codeCopied ? 'Copied' : 'Copy code'}</button>
+                </div>
+                <div className="seed">
+                    <label className="field">Have a code? Paste it here
+                        <input type="text" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} spellCheck={false} placeholder="B1.…" aria-describedby={`${uid}-code-msg`} />
+                    </label>
+                    <button type="button" onClick={applyCode} disabled={!codeInput.trim()}>Apply code</button>
+                </div>
+                <p id={`${uid}-code-msg`} className={`status ${codeMsg.error ? 'err' : ''}`} role={codeMsg.error ? 'alert' : 'status'}>{codeMsg.text}</p>
                 <p id={`${uid}-seed-help`} className="hint">The same seed, puzzle counts and settings always give the same book. The seed is printed on the copyright page.</p>
             </Step>
 
