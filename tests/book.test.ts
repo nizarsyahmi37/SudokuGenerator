@@ -201,6 +201,18 @@ describe('book generator', () => {
         expect(contentOps(color.interior).rgb).toBeGreaterThan(20); // the normal book is RGB, so the check above means something
     });
 
+    it('draws a real barcode in the white box when a valid ISBN is given, and not otherwise', async () => {
+        const print = { bleedMm: 3.175, bleedEdges: 'outer' as const, cropMarks: false, paper: 'white' as const };
+        const text = async (bytes: Uint8Array) => { const d = await pdfjs.getDocument({ data: bytes.slice() }).promise; return (await (await d.getPage(1)).getTextContent()).items.map((i) => ('str' in i ? i.str : '')).join(''); };
+        const withIsbn = await buildBook(smallBook({ print, copyright: { enabled: false, holder: '', year: 2026, isbn: '978-0-306-40615-7' } }), fonts);
+        const t = (await text(withIsbn.cover as Uint8Array)).replace(/\s/g, '');
+        expect(t).toContain('ISBN9780306406157');
+        const noBox = await buildBook(smallBook({ print, barcodeArea: false, copyright: { enabled: false, holder: '', year: 2026, isbn: '9780306406157' } }), fonts);
+        expect(await text(noBox.cover as Uint8Array)).not.toContain('9780306406157');
+        const bad = await buildBook(smallBook({ print, copyright: { enabled: false, holder: '', year: 2026, isbn: '9780306406158' } }), fonts);
+        expect(await text(bad.cover as Uint8Array)).not.toContain('9780306406158');
+    });
+
     it('barcode area is optional on the cover wrap', async () => {
         const print = { bleedMm: 3.175, bleedEdges: 'outer' as const, cropMarks: false, paper: 'white' as const };
         const withBox = await buildBook(smallBook({ print, barcodeArea: true }), fonts);

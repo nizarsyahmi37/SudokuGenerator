@@ -83,7 +83,7 @@ test('print-ready output makes an interior and a cover PDF with a spine width', 
 test('large print, ink saver and the barcode area are offered for print', async ({ page }) => {
     await page.getByLabel('Print-ready').check({ force: true });
     await expect(page.getByLabel(/Ink saver/)).toBeVisible();
-    await expect(page.getByLabel(/white area for the ISBN barcode/)).toBeChecked();
+    await expect(page.getByLabel(/Back cover barcode area/)).toBeChecked();
     await page.getByLabel(/Large print/).check();
     await expect(page.getByLabel('2, compact')).toBeDisabled();
 });
@@ -176,4 +176,16 @@ test('a Chinese title asks for a font file and then builds with it', async ({ pa
     await build(page);
     await page.getByLabel(/^Font for other alphabets/).setInputFiles({ name: 'x.txt', mimeType: 'text/plain', buffer: Buffer.from('this is not a font file at all') });
     await expect(page.getByRole('alert').filter({ hasText: 'TTF, OTF or WOFF' })).toBeVisible();
+});
+
+test('an ISBN is checked as you type and the print cover builds with its barcode', async ({ page }) => {
+    await setCounts(page, 1);
+    await page.getByLabel('Print-ready').check({ force: true });
+    const isbn = page.getByLabel('ISBN (optional)');
+    await isbn.fill('9780306406158');
+    await expect(page.getByText('wrong check digit')).toBeVisible();
+    await isbn.fill('978-0-306-40615-7');
+    await expect(page.getByText(/Valid ISBN-13 9780306406157. The barcode is drawn on the back cover/)).toBeVisible();
+    await build(page);
+    await expect(page.getByRole('button', { name: 'Download cover PDF' })).toBeVisible();
 });

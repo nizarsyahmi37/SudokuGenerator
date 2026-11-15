@@ -10,6 +10,7 @@ import { randomSeed } from '../lib/rng';
 import { THEME_KEYS, getTheme, themeLabel, type Mode } from '../lib/themes';
 import { css } from '../lib/palette';
 import { unsupportedIn } from '../lib/pdf/scripts';
+import { parseIsbn } from '../lib/isbn';
 import BookPreview from './BookPreview';
 import CoverPreview from './CoverPreview';
 
@@ -93,6 +94,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     }
 
     const printing = output === 'print';
+    const isbnCheck = isbn.trim() ? parseIsbn(isbn) : null;
     const unsupported = unsupportedIn(title, author, coverSubtitle, holder, backCover);
 
     /** Reads a picture for the cover. PNG and JPEG only, up to 5 MB, and it stays on this device. */
@@ -285,9 +287,9 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         </label>
                         <label className="check">
                             <input type="checkbox" checked={barcodeArea} onChange={(e) => setBarcodeArea(e.target.checked)} />
-                            <span>Leave a white area for the ISBN barcode on the back cover</span>
+                            <span>Back cover barcode area: a white box for the ISBN barcode (filled in automatically when you enter a valid ISBN in step 3)</span>
                         </label>
-                        <p className="hint">Optional. The book does not generate barcodes: add the one you bought, or leave the area blank and let your printer place theirs (Amazon KDP does this when you do not have an ISBN).</p>
+                        <p className="hint">Enter your ISBN in step 3 and the barcode is drawn here for you. With no ISBN, leave the area blank and let your printer place theirs (Amazon KDP does this when you do not have an ISBN).</p>
                         <label className="check">
                             <input type="checkbox" checked={cropMarks} onChange={(e) => setCropMarks(e.target.checked)} />
                             <span>Add crop marks (most print-on-demand services do not want them)</span>
@@ -378,6 +380,12 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         })}
                     </div>
                 </fieldset>
+                <label className="field" style={{ marginTop: 14 }}>ISBN (optional)
+                    <input type="text" value={isbn} onChange={(e) => setIsbn(e.target.value)} inputMode="text" autoComplete="off" placeholder="978-…" aria-invalid={isbnCheck ? 'error' in isbnCheck : undefined} aria-describedby={`${uid}-isbn-msg`} />
+                </label>
+                <p id={`${uid}-isbn-msg`} className={isbnCheck && 'error' in isbnCheck ? 'status err' : 'hint'} role="status">
+                    {isbnCheck ? ('error' in isbnCheck ? isbnCheck.error : (printing && barcodeArea ? `Valid ISBN-13 ${isbnCheck.isbn13}. The barcode is drawn on the back cover.` : `Valid ISBN-13 ${isbnCheck.isbn13}. It is printed on the copyright page.`)) : 'Type your ISBN and a real barcode is drawn on the back cover of a print book, as well as the number on the copyright page.'}
+                </p>
                 <label className="check" style={{ marginTop: 14 }}>
                     <input type="checkbox" checked={copyrightOn} onChange={(e) => setCopyrightOn(e.target.checked)} />
                     <span>Include a copyright page</span>
@@ -389,9 +397,6 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         </label>
                         <label className="field">Year
                             <input type="number" min={1900} max={2200} value={year} onChange={(e) => setYear(Number(e.target.value))} />
-                        </label>
-                        <label className="field">ISBN (optional)
-                            <input type="text" value={isbn} onChange={(e) => setIsbn(e.target.value)} inputMode="numeric" autoComplete="off" />
                         </label>
                     </div>
                 )}
