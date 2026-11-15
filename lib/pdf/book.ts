@@ -436,7 +436,8 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
         spineMm = spineWidthMm(pages, print.paper);
         cover = await buildCover({ cfg, t: ct, fonts, pages, spineMm, bleed, slug, total, seed });
     }
-    return { interior, cover, pages, spineMm };
+    const offGrade = entries.filter((e) => e.grade < e.level).map((e) => ({ number: e.number, level: e.level, grade: e.grade }));
+    return { interior, cover, pages, spineMm, offGrade };
 }
 
 // ---------------------------------------------------------------------------------------------

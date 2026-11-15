@@ -413,6 +413,11 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         <p className={`status ${progress.error ? 'err' : ''}`} role={progress.error ? 'alert' : 'status'}>{progress.text}</p>
                     </>
                 )}
+                {built && built.result.offGrade.length > 0 && !busy && (
+                    <p className="hint" role="note">
+                        {built.result.offGrade.length === 1 ? '1 puzzle graded' : `${built.result.offGrade.length} puzzles graded`} a little easier than its section: {built.result.offGrade.slice(0, 6).map((o) => `no. ${o.number} is level ${o.grade}, in the level ${o.level} section`).join('; ')}{built.result.offGrade.length > 6 ? '; and more' : ''}. Build again with another seed to change them.
+                    </p>
+                )}
                 {stale && <p className="status err" role="status">Your settings have changed since this book was built. Build again to update the preview and downloads.</p>}
 
                 {built && shown && (

@@ -98,6 +98,8 @@ export interface BookResult {
     cover?: Uint8Array;
     pages: number;
     spineMm?: number;
+    /** Puzzles that grade easier than the level of their section, as they really graded. Empty when every puzzle matched. */
+    offGrade: Array<{ number: number; level: Level; grade: number }>;
 }
 
 export type Progress = (done: number, total: number, phase: string) => void;

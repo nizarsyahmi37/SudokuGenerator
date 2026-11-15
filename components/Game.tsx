@@ -132,7 +132,7 @@ export default function Game() {
         if (a.type !== 'tick' && a.type !== 'start' && a.type !== 'hint') { setHint(null); setWrongCell(null); }
         if (next.won && !game.won) {
             fx.current?.fireworks(fxcRef.current.fx);
-            const s = recordWin(stats, next.level, next.seconds, next.kind === 'daily' ? dailyInfo().key : undefined);
+            const s = recordWin(stats, next.grade, next.seconds, next.kind === 'daily' ? dailyInfo().key : undefined);
             setStats(s); saveStats(s);
         }
     }, [game, stats]);
@@ -148,7 +148,7 @@ export default function Game() {
         dispatch({ type: 'start' });
         if (!startedIds.current.has(gameId)) {
             startedIds.current.add(gameId);
-            const s = recordStart(stats, game.level);
+            const s = recordStart(stats, game.grade);
             setStats(s); saveStats(s);
         }
     }, [game, gameId, stats]);
@@ -310,6 +310,8 @@ export default function Game() {
     const streak = streaks(stats, today.key);
     const t = totals(stats);
     const dailyDone = stats.daily[today.key] !== undefined;
+    // The level a puzzle really graded as, which can be a notch below the one asked for.
+    const shownLevel = (game ? Math.max(1, Math.min(10, game.grade)) : 5) as Level;
     const clock = formatTime(game?.seconds ?? 0);
 
     return (
@@ -335,7 +337,7 @@ export default function Game() {
                     <section className="panel board-panel" aria-labelledby={`${uid}-h-board`}>
                         <h2 id={`${uid}-h-board`} className="sr-only">Puzzle board</h2>
                         <div className="statbar">
-                            <span className="lvl-pill" style={lcStyle((game?.level ?? 5) as Level)}>Level {game?.level ?? 5} · {LEVEL_NAMES[(game?.level ?? 5) as Level]}</span>
+                            <span className="lvl-pill" style={lcStyle(shownLevel)}>Level {shownLevel} · {LEVEL_NAMES[shownLevel]}</span>
                             <span className="stat" role="timer" aria-label={`Elapsed time ${clock}${game?.paused ? ', paused' : ''}`}>{clock}</span>
                             <button type="button" className="pause-btn" aria-pressed={!!game?.paused} disabled={!canPause && !game?.paused} onClick={() => act({ type: game?.paused ? 'resume' : 'pause' })}>{game?.paused ? 'Resume' : 'Pause'}</button>
                             <span className="stat">{filledCount}/81</span>
@@ -405,7 +407,7 @@ export default function Game() {
                                         aria-label={`Level ${l}, ${LEVEL_NAMES[l]}, ${LEVEL_TECHNIQUES[l]}. Starts a new game.`} onClick={() => newRandom(l)}>{l}</button>
                                 ))}
                             </div>
-                            <p className="hint">{game ? `Level ${game.level} needs: ${LEVEL_TECHNIQUES[game.level]}.${game.grade !== game.level ? ` This puzzle grades as level ${game.grade}.` : ''}` : ''}</p>
+                            <p className="hint">{game ? `Level ${game.level} needs: ${LEVEL_TECHNIQUES[game.level]}.${game.grade !== game.level ? ` You asked for level ${game.level}, and this puzzle graded as level ${game.grade}, so that is what it counts as.` : ''}` : ''}</p>
                             <div className="toolbar">
                                 <button type="button" className="primary" onClick={() => newRandom((game?.level ?? 5) as Level)}>New game</button>
                             </div>

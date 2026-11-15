@@ -18,6 +18,12 @@ describe('book generator', () => {
         expect(r.cover).toBeUndefined();
     });
 
+    it('reports puzzles that graded below their section, and only those', async () => {
+        const r = await buildBook(smallBook({ counts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 3, 7: 0, 8: 0, 9: 0, 10: 0 } }), fonts);
+        expect(Array.isArray(r.offGrade)).toBe(true);
+        for (const o of r.offGrade) { expect(o.level).toBe(6); expect(o.grade).toBeLessThan(6); }
+    });
+
     it('is repeatable: the same seed and settings give the same pages', async () => {
         const a = await pageTexts((await buildBook(smallBook(), fonts)).interior);
         const b = await pageTexts((await buildBook(smallBook(), fonts)).interior);
