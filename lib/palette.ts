@@ -22,8 +22,9 @@ export function ensure(fg: RGB, bgs: RGB | RGB[], ratio: number): RGB {
     const list = Array.isArray(bgs[0]) ? (bgs as RGB[]) : [bgs as RGB];
     const ok = (c: RGB) => list.every((b) => contrast(c, b) >= ratio);
     if (ok(fg)) return fg;
-    const avgLum = list.reduce((s, b) => s + luminance(b), 0) / list.length;
-    const target = avgLum > 0.4 ? BLACK : WHITE;
+    // Move towards whichever of black or white can give the better worst-case contrast (matters on mid-tone backgrounds).
+    const worst = (t: RGB) => Math.min(...list.map((b) => contrast(t, b)));
+    const target = worst(BLACK) >= worst(WHITE) ? BLACK : WHITE;
     for (let t = 0.04; t <= 1.0001; t += 0.04) { const c = mix(fg, target, t); if (ok(c)) return c; }
     return target;
 }
