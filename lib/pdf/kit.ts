@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import type { RGB } from '../palette';
-import { EXTRA_SCRIPTS, splitRuns, type Script } from './scripts';
+import { EXTRA_SCRIPTS, NOTO_SCRIPTS, isRtlText, splitRuns, type ExtraScript, type Script } from './scripts';
 
 export type FontKey = 'sans' | 'sansBold' | 'serif' | 'serifBold' | 'serifItalic' | 'serifBoldItalic';
 
@@ -21,8 +21,14 @@ export const FONT_FILES: Record<FontKey, string> = {
 
 const BASE_KEYS = Object.keys(FONT_FILES) as FontKey[];
 
-/** File name of a font for another alphabet, e.g. "inter-cyrillic-400-normal.woff". */
-export const extraFile = (key: FontKey, script: Exclude<Script, 'latin'>) => FONT_FILES[key].replace('-latin-', `-${script}-`);
+/**
+ * File name of a font for another alphabet, e.g. "inter-cyrillic-400-normal.woff". Arabic, Hebrew, Devanagari and Thai use
+ * Noto Sans in every style, because the Latin typefaces have no letters for them (and no italic exists, so italic stays upright).
+ */
+export const extraFile = (key: FontKey, script: ExtraScript) => {
+    if ((NOTO_SCRIPTS as string[]).includes(script)) return `noto-sans-${script}-${script}-${key.includes('Bold') ? 700 : 400}-normal.woff`;
+    return FONT_FILES[key].replace('-latin-', `-${script}-`);
+};
 
 /** Loads the font files over HTTP (browser or worker). `scripts` adds fonts for other alphabets. */
 export async function fetchFonts(baseUrl = '/fonts/', scripts: Script[] = []): Promise<FontSet> {
@@ -36,7 +42,9 @@ export async function fetchFonts(baseUrl = '/fonts/', scripts: Script[] = []): P
     const wanted = EXTRA_SCRIPTS.filter((s) => scripts.includes(s));
     await Promise.all([
         ...BASE_KEYS.map(async (k) => { out[k] = await get(FONT_FILES[k]); }),
-        ...wanted.flatMap((s) => BASE_KEYS.map(async (k) => { extra[`${k}:${s}`] = await get(extraFile(k, s)); })),
+        ...wanted.flatMap((s) => (NOTO_SCRIPTS as string[]).includes(s)
+            ? (['sans', 'sansBold'] as FontKey[]).map(async (k) => { extra[`${k}:${s}`] = await get(extraFile(k, s)); })
+            : BASE_KEYS.map(async (k) => { extra[`${k}:${s}`] = await get(extraFile(k, s)); })),
     ]);
     if (wanted.length) out.extra = extra;
     return out;
@@ -127,15 +135,22 @@ export class Kit {
 
     /** The registered font to use for one run: the alphabet-specific one when it is loaded, else the base font. */
     private fontFor(key: FontKey, script: Script): string {
-        const name = `${key}:${script}`;
+        if (script === 'custom') return this.extraNames.has('custom') ? 'custom' : key;
+        const name = (NOTO_SCRIPTS as string[]).includes(script) ? `${key.includes('Bold') ? 'sansBold' : 'sans'}:${script}` : `${key}:${script}`;
         return script !== 'latin' && this.extraNames.has(name) ? name : key;
+    }
+
+    /** The runs of a line in the order they are drawn: reversed when the line reads right to left. */
+    private runsOf(str: string) {
+        const runs = splitRuns(str, this.extraNames.has('custom'));
+        return isRtlText(str) ? runs.reverse() : runs;
     }
 
     /** Width of a string in mm, summed over runs so mixed alphabets measure correctly. */
     width(str: string, o: TextOpts = {}): number {
         const track = (o.track ?? 0) * MM;
         let w = 0;
-        for (const r of splitRuns(str)) {
+        for (const r of this.runsOf(str)) {
             this.doc.font(this.fontFor(o.font ?? 'sans', r.script)).fontSize(o.size ?? 10);
             w += this.doc.widthOfString(r.text, { characterSpacing: track }) + (track ? 0 : 0);
         }
@@ -213,7 +228,7 @@ export class Kit {
         if (o.opacity !== undefined) d.fillOpacity(o.opacity);
         d.fillColor(this.col(o.color ?? [0, 0, 0]));
         let cx = left * MM;
-        for (const r of splitRuns(str)) {
+        for (const r of this.runsOf(str)) {
             d.font(this.fontFor(o.font ?? 'sans', r.script)).fontSize(size);
             d.text(r.text, cx, y * MM, { lineBreak: false, baseline: o.baseline ?? 'alphabetic', characterSpacing: (o.track ?? 0) * MM });
             cx += d.widthOfString(r.text, { characterSpacing: (o.track ?? 0) * MM });

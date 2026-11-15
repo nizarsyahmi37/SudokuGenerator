@@ -327,7 +327,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                 </div>
                 {unsupported.length > 0 && (
                     <p className="status err" role="status">
-                        The PDF fonts do not cover {unsupported.join(', ')} yet, so those characters will print as “?”. Latin, Latin Extended, Vietnamese, Cyrillic and Greek are supported.
+                        The PDF fonts do not cover {unsupported.join(', ')} yet, so those characters will print as “?”. Latin, Latin Extended, Vietnamese, Cyrillic, Greek, Arabic, Hebrew, Devanagari and Thai are supported.
                     </p>
                 )}
                 <fieldset className="plain">

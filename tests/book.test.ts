@@ -5,7 +5,7 @@ import { buildBook, buildCoverPreview, coverTheme, uniquePuzzle } from '../lib/p
 import { contrast } from '../lib/palette';
 import { getTheme } from '../lib/themes';
 import { DEFAULT_COVER, DEFAULT_EXTRAS, planPages } from '../lib/bookConfig';
-import { scriptsIn, splitRuns, unsupportedIn } from '../lib/pdf/scripts';
+import { isRtlText, scriptsIn, splitRuns, unsupportedIn } from '../lib/pdf/scripts';
 import { puzzleTitles, TITLE_COUNT } from '../lib/pdf/titles';
 import { buildBookInWorker } from '../lib/bookClient';
 import { loadFonts, loadFontsWithScripts, makePng, pageTexts, smallBook } from './helpers';
@@ -217,9 +217,22 @@ describe('book generator', () => {
         expect(scriptsIn('Plain English')).toEqual([]);
     });
 
+    it('sets Arabic, Hebrew, Devanagari and Thai with their own fonts, and reads right to left where needed', async () => {
+        const title = 'سودوكو';
+        const r = await buildBook(smallBook({ title, author: 'Dev: सुडोकू · Thai: ซูโดกุ · עברית' }), loadFontsWithScripts());
+        const first = (await pageTexts(r.interior))[0].replace(/\s+/g, '');
+        expect(first).not.toContain('?');
+        for (const ch of ['س', 'و', 'स', 'ซ', 'ע']) expect(first).toContain(ch);
+        expect(scriptsIn(title, 'सुडोकू', 'ซูโดกุ', 'עברית').sort()).toEqual(['arabic', 'devanagari', 'hebrew', 'thai']);
+        expect(isRtlText('سودوكو Sudoku')).toBe(true);
+        expect(isRtlText('Sudoku سودوكو')).toBe(false);
+        expect(isRtlText('123 עברית')).toBe(true); // digits and spaces do not decide the direction
+        expect(splitRuns('كتاب Sudoku').map((x) => x.script)).toEqual(['arabic', 'latin']);
+    });
+
     it('never prints empty boxes: uncovered alphabets become a question mark and are reported', () => {
         expect(splitRuns('日本').map((r) => r.text).join('')).toBe('??');
-        expect(unsupportedIn('Sudoku 数独', 'عربى')).toEqual(['Arabic', 'Chinese, Japanese or Korean']);
+        expect(unsupportedIn('Sudoku 数独', 'Ελληνικά')).toEqual(['Chinese, Japanese or Korean']);
         expect(unsupportedIn('Ünïcödé Ñ')).toEqual([]);
     });
 

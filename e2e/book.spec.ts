@@ -157,3 +157,11 @@ test('the cover preview shows while editing and follows the title without buildi
     await page.getByRole('radio', { name: 'Print-ready' }).check({ force: true });
     await expect(page.locator('.cover-preview [role=status]')).toContainText(/Back cover, spine and front cover/, { timeout: 30_000 });
 });
+
+test('a book with an Arabic title and Hindi author builds, with no warning about missing fonts', async ({ page }) => {
+    await setCounts(page, 1);
+    await page.getByLabel('Book title').fill('سودوكو العربية');
+    await page.getByLabel('Author or publisher').fill('सुडोकू');
+    await expect(page.getByText(/do not cover/)).toHaveCount(0);
+    await build(page);
+});

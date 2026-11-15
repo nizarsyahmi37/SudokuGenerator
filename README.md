@@ -20,7 +20,7 @@ Play sudoku at ten difficulty levels, get hints that explain why, and turn puzzl
 - **Ink saver:** black and white only, no fills or pictures.
 - **Large print:** bigger type, one puzzle per page, two solutions per page.
 - **Repeatable:** the same seed, counts and settings always make the same book. A short **book code** (`B1.…`) captures the seed and all ten counts so a book can be rebuilt later.
-- **Multilingual titles:** Latin, Latin Extended, Vietnamese, Cyrillic and Greek. Other alphabets (Arabic, Hebrew, Indic, Thai, Chinese, Japanese, Korean) are not supported yet and the builder says so.
+- **Multilingual titles:** Latin, Latin Extended, Vietnamese, Cyrillic, Greek, Arabic, Hebrew, Devanagari and Thai, with right-to-left text set in the right order. Other alphabets are reported by the builder.
 - **Fast and safe to use:** books are built in a Web Worker (with a main-thread fallback for old browsers), with progress, cancel and a page-by-page preview before you download.
 - **Accessible PDFs:** tagged, with a title, language, bookmarks, embedded fonts and a text description of every grid.
 
