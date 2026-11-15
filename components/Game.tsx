@@ -6,6 +6,8 @@ import { dailyInfo, newGame, noteDigits, parseShare, reducer, restore, serialize
 import { TECHNIQUE_NAMES, cellName, explainNext, type Hint } from '../lib/logic';
 import { randomSeed } from '../lib/rng';
 import { emptyStats, formatTime, loadStats, recordStart, recordWin, saveStats, streaks, totals, type Stats } from '../lib/stats';
+import { backupFileName, makeBackup, mergeStats, parseBackup } from '../lib/backup';
+import { downloadBlob } from '../lib/download';
 import { levelColor } from '../lib/bookConfig';
 import { readableOn, css } from '../lib/palette';
 import { ExportFormat, ExportKind, exportBoard } from '../lib/export';
@@ -236,6 +238,23 @@ export default function Game() {
             setMessage({ text: `Copy this link to share the puzzle: ${url}`, kind: '' });
         }
     };
+    const exportProgress = () => {
+        downloadBlob(new Blob([JSON.stringify(makeBackup(game, stats), null, 2)], { type: 'application/json' }), backupFileName());
+        setMessage({ text: 'Progress saved to a file. Keep it somewhere safe, or open it on another device.', kind: 'ok' });
+    };
+    const importProgress = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        const parsed = parseBackup(file.size > 512 * 1024 ? 'x'.repeat(512 * 1024 + 1) : await file.text());
+        if ('error' in parsed) { setMessage({ text: parsed.error, kind: 'err' }); return; }
+        const replacing = parsed.game && game?.started && !game.won && !game.revealed;
+        if (replacing && !window.confirm('This replaces the game you are playing with the one in the file. Continue?')) return;
+        const merged = mergeStats(stats, parsed.stats);
+        setStats(merged); saveStats(merged);
+        if (parsed.game) { dispatch({ type: 'load', game: parsed.game }); setSelected(null); setHint(null); setWrongCell(null); }
+        setMessage({ text: parsed.game ? 'Progress imported: the saved game is open and your statistics are combined.' : 'Statistics imported and combined with yours.', kind: 'ok' });
+    };
     const resetStats = () => { if (window.confirm('Reset all statistics? This cannot be undone.')) { const s = emptyStats(); setStats(s); saveStats(s); } };
 
     const doExport = async (kind: ExportKind) => {
@@ -421,6 +440,19 @@ export default function Game() {
                                 </table>
                                 <button type="button" className="link-button" onClick={resetStats}>Reset statistics</button>
                             </details>
+                        </section>
+
+                        <section className="panel" aria-labelledby={`${uid}-h-bak`}>
+                            <h2 id={`${uid}-h-bak`} className="panel-title">Move your progress</h2>
+                            <p className="hint">Your game and statistics live only in this browser. Save them to a file to keep a copy or to continue on another device.</p>
+                            <div className="tools two">
+                                <button type="button" onClick={exportProgress}>Save to file</button>
+                                <label className="file-btn">
+                                    <span>Open a file</span>
+                                    <input type="file" accept="application/json,.json" className="sr-only" onChange={importProgress} />
+                                </label>
+                            </div>
+                            <p className="hint">Opening a file adds its statistics to yours and opens its saved game.</p>
                         </section>
 
                         <section className="panel" aria-labelledby={`${uid}-h-exp`}>

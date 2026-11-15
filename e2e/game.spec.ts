@@ -138,3 +138,28 @@ test('a hidden tab pauses the game', async ({ page }) => {
     });
     await expect(page.getByRole('region', { name: 'Game paused' })).toBeVisible();
 });
+
+test('progress can be saved to a file and opened in another browser', async ({ page, browser }) => {
+    const seed = await code(page).textContent();
+    const i = await emptyCellIndex(page);
+    await cells(page).nth(i).focus();
+    await page.keyboard.press('4');
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Save to file' }).click()]);
+    expect(download.suggestedFilename()).toMatch(/^sudoku-progress-\d{4}-\d{2}-\d{2}\.json$/);
+    const path = await download.path();
+
+    const other = await browser.newPage();
+    await fresh(other);
+    await other.goto('/');
+    await expect(cells(other)).toHaveCount(81);
+    await other.locator('.file-btn input').setInputFiles(path);
+    await expect(other.locator('.board-panel [role=status]')).toContainText('Progress imported');
+    await expect(other.locator('.code b')).toHaveText(seed!);
+    await expect(cells(other).nth(i)).toHaveAttribute('aria-label', /, 4(,|$)/);
+    await other.close();
+});
+
+test('a file that is not a backup is refused', async ({ page }) => {
+    await page.locator('.file-btn input').setInputFiles({ name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') });
+    await expect(page.locator('.board-panel [role=status]')).toContainText('not a backup');
+});

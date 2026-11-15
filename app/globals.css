@@ -266,3 +266,9 @@ table.stats thead th { background: var(--panel-2); }
 .pause-cover p { margin: 0; }
 .pause-cover button { margin-top: 12px; padding: 10px 22px; min-height: 44px; border: 2px solid var(--a1); border-radius: 10px; background: var(--a1); color: var(--on-a1); font: inherit; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
 .pause-cover button:hover { filter: brightness(1.08); }
+
+/* ---- backup ---- */
+.file-btn { display: block; }
+.file-btn span { display: grid; place-items: center; padding: 8px 14px; min-height: 40px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); font-weight: 600; cursor: pointer; }
+.file-btn:hover span { background: var(--bg-glow); }
+.file-btn:focus-within span { outline: 3px solid var(--focus); outline-offset: 2px; }
