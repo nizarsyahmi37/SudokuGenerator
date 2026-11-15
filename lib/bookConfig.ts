@@ -66,6 +66,20 @@ export interface CoverOptions {
 
 export const DEFAULT_COVER: CoverOptions = { subtitle: '', bgColor: '', accentColor: '', showGrid: true, image: null };
 
+export type NotesStyle = 'lined' | 'dotted' | 'blank';
+
+/** Extra pages and touches that do not change the puzzles themselves. */
+export interface Extras {
+    /** Give every puzzle a name such as "The Amber Fox" next to its number. */
+    puzzleTitles: boolean;
+    /** Notes pages added after the solutions (0 to MAX_NOTES_PAGES). */
+    notesPages: number;
+    notesStyle: NotesStyle;
+}
+
+export const MAX_NOTES_PAGES = 20;
+export const DEFAULT_EXTRAS: Extras = { puzzleTitles: false, notesPages: 0, notesStyle: 'lined' };
+
 export interface BookConfig {
     counts: Record<Level, number>; // number of puzzles per level
     /** Trim size in mm. */
@@ -90,6 +104,7 @@ export interface BookConfig {
     barcodeArea: boolean;
     /** Short text for the back cover (print) */
     backCover: string;
+    extras: Extras;
 }
 
 export interface BookResult {
@@ -116,18 +131,19 @@ export function kdpGutterMm(pages: number) {
 
 export const spineWidthMm = (pages: number, paper: Paper) => pages * PAPER_THICKNESS_IN[paper] * IN;
 
-/** Page count of the interior for a configuration (front matter + puzzles + solutions, padded to even when printing). */
-export function planPages(cfg: Pick<BookConfig, 'counts' | 'puzzlesPerPage' | 'largePrint' | 'copyright' | 'print'>) {
+/** Page count of the interior for a configuration (front matter + puzzles + solutions + notes, padded to even when printing). */
+export function planPages(cfg: Pick<BookConfig, 'counts' | 'puzzlesPerPage' | 'largePrint' | 'copyright' | 'print' | 'extras'>) {
     const total = totalPuzzles(cfg.counts);
     const per = cfg.largePrint ? 1 : cfg.puzzlesPerPage;
     const solPer = cfg.largePrint ? 2 : 4;
     const front = 3 + (cfg.copyright.enabled ? 1 : 0); // cover/title, [copyright], how to play, contents
     const puzzlePages = Math.ceil(total / per);
     const solutionPages = Math.ceil(total / solPer);
-    let pages = front + puzzlePages + solutionPages;
+    const notes = Math.max(0, Math.min(MAX_NOTES_PAGES, Math.floor(cfg.extras.notesPages) || 0));
+    let pages = front + puzzlePages + solutionPages + notes;
     const blank = cfg.print && pages % 2 ? 1 : 0;
     pages += blank;
-    return { total, per, solPer, front, puzzlePages, solutionPages, blank, pages };
+    return { total, per, solPer, front, puzzlePages, solutionPages, notes, blank, pages };
 }
 
 /** Level colour ramp used by the app UI (the printed book itself uses a single spot colour). */

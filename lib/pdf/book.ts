@@ -4,8 +4,9 @@ import { contrast, ensure, isDark, mix, readableOn, type RGB } from '../palette'
 import { INK_SAVER, getTheme, type Theme } from '../themes';
 import { kdpGutterMm, planPages, spineWidthMm, totalPuzzles, type BookConfig, type BookResult, type Progress } from '../bookConfig';
 import { Kit, type FontSet } from './kit';
+import { puzzleTitles } from './titles';
 
-interface Entry extends Puzzle { number: number; level: Level }
+interface Entry extends Puzzle { number: number; level: Level; title?: string }
 
 const M = 16; // outer margin (mm)
 const GUT = 4; // extra binding margin
@@ -154,6 +155,11 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
             onProgress?.(entries.length, total, 'Generating puzzles');
             if (yieldToUi && entries.length % 2 === 0) await yieldToUi();
         }
+    }
+
+    if (cfg.extras.puzzleTitles) {
+        const names = puzzleTitles(seed, entries.length);
+        entries.forEach((e, i) => { e.title = names[i]; });
     }
 
     // ---- 2. Page geometry ----
@@ -340,7 +346,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
         k.tag('H1', () => k.text('Contents', b.x0, TOP + 14, { font: 'serifBold', size: 26 * Math.max(sc, 0.8) * (lp ? 1.1 : 1), color: t.ink }));
         let y = TOP + 24 * Math.max(sc, 0.8) * (lp ? 1.2 : 1);
         const rows = LEVELS.filter((l) => cfg.counts[l] > 0);
-        const rowH = Math.min(11 * sc * (lp ? 1.4 : 1), (TH - BOT - y - 10) / (rows.length + 1));
+        const rowH = Math.min(11 * sc * (lp ? 1.4 : 1), (TH - BOT - y - 10) / (rows.length + 1 + (plan.notes ? 1 : 0)));
         rule(b.x0, y, b.x1);
         let n = 1;
         const row = (name: string, sub: string, pg: string) => {
@@ -362,6 +368,11 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
         }
         bookmarks.push(['Solutions', solStart]);
         row('Solutions', `All ${total} puzzles, ${solPer === 4 ? 'four' : 'two'} to a page`, `${solStart}`);
+        if (plan.notes) {
+            const ns = solStart + plan.solutionPages;
+            bookmarks.push(['Notes', ns]);
+            row('Notes', cfg.extras.notesStyle === 'blank' ? 'Blank pages' : cfg.extras.notesStyle === 'dotted' ? 'Dotted pages' : 'Lined pages', plan.notes === 1 ? `${ns}` : `${ns}–${ns + plan.notes - 1}`);
+        }
         folio();
     }
 
@@ -379,11 +390,11 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
             const x = b.cx - board / 2;
             const nf = (per === 1 ? 34 : 22) * (lp ? 1.2 : 1);
             const numW = k.width(String(e.number), { font: 'serifBold', size: nf });
-            k.tag('H2', () => k.text(String(e.number), x, top + HEAD - 5, { font: 'serifBold', size: nf, color: t.ink }), { actual: `Puzzle ${e.number}` });
+            k.tag('H2', () => k.text(String(e.number), x, top + HEAD - 5, { font: 'serifBold', size: nf, color: t.ink }), { actual: e.title ? `Puzzle ${e.number}: ${e.title}` : `Puzzle ${e.number}` });
             const nx = x + numW + 4;
             k.tag('P', () => {
-                label(`Level ${e.level}`, nx, top + HEAD - 12 * (lp ? 1.1 : 1), 7 * Math.max(K * 0.9, 1), spot, 1);
-                k.text(LEVEL_NAMES[e.level], nx, top + HEAD - 6.5, { font: 'serifItalic', size: 11 * Math.max(K * 0.9, 1), color: muted });
+                label(e.title ? `Level ${e.level} · ${LEVEL_NAMES[e.level]}` : `Level ${e.level}`, nx, top + HEAD - 12 * (lp ? 1.1 : 1), 7 * Math.max(K * 0.9, 1), spot, 1);
+                k.text(e.title ?? LEVEL_NAMES[e.level], nx, top + HEAD - 6.5, { font: 'serifItalic', size: 11 * Math.max(K * 0.9, 1), color: muted });
             });
             k.artifact(() => {
                 const sq = Math.min(1.6, board / 40) * (lp ? 1.3 : 1);
@@ -394,7 +405,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
                 }
             });
             drawBoard(k, t, x, top + HEAD, board, e.puzzle, null,
-                `Sudoku puzzle ${e.number}, level ${e.level}, ${LEVEL_NAMES[e.level]}, with ${e.puzzle.filter(Boolean).length} given digits. ${rowsText(e.puzzle)}.`);
+                `Sudoku puzzle ${e.number}${e.title ? `, ${e.title}` : ''}, level ${e.level}, ${LEVEL_NAMES[e.level]}, with ${e.puzzle.filter(Boolean).length} given digits. ${rowsText(e.puzzle)}.`);
             k.tag('P', () => k.text(`Solution on page ${solPageOf(e.number)}`, x, top + HEAD + board + 5 * (lp ? 1.4 : 1), { font: 'serifItalic', size: 7.5 * Math.max(K * 0.9, 1), color: muted }));
         });
         folio();
@@ -428,6 +439,29 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
             }, { actual: `Solution to puzzle ${e.number}, level ${e.level}` });
             drawBoard(k, t, x, y + LAB, board, e.puzzle, e.solution, `Solution to sudoku puzzle ${e.number}, level ${e.level}. ${rowsText(e.solution)}.`);
         });
+        folio();
+    }
+
+    // ---- 5b. Notes pages ----
+    for (let n = 0; n < plan.notes; n++) {
+        newPage();
+        if (n === 0) mark('Notes', pageNo);
+        const b = box();
+        const style = cfg.extras.notesStyle;
+        if (style !== 'blank') {
+            k.tag(n === 0 ? 'H1' : 'P', () => label('Notes', b.x0, TOP, 7 * Math.max(K * 0.9, 1), spot, 1.2));
+            rule(b.x0, TOP + 3, b.x1);
+            const top = TOP + 3, bottom = TH - BOT - 4;
+            if (style === 'lined') {
+                const step = lp ? 11 : 8;
+                for (let y = top + step; y <= bottom; y += step) hairline(b.x0, y, b.x1);
+            } else {
+                const step = lp ? 6 : 5;
+                k.artifact(() => {
+                    for (let y = top + step; y <= bottom; y += step) for (let x = b.x0; x <= b.x1 + 0.01; x += step) k.circle(x, y, 0.22, { fill: faint });
+                });
+            }
+        }
         folio();
     }
 

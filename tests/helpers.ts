@@ -3,7 +3,7 @@ import { deflateSync } from 'node:zlib';
 import { join } from 'node:path';
 import { FONT_FILES, extraFile, type FontKey, type FontSet } from '../lib/pdf/kit';
 import { EXTRA_SCRIPTS } from '../lib/pdf/scripts';
-import { DEFAULT_COVER, type BookConfig } from '../lib/bookConfig';
+import { DEFAULT_COVER, DEFAULT_EXTRAS, type BookConfig } from '../lib/bookConfig';
 
 export function loadFonts(): FontSet {
     const fonts = {} as FontSet;
@@ -23,7 +23,7 @@ export const smallBook = (over: Partial<BookConfig> = {}): BookConfig => ({
     counts: { 1: 2, 2: 0, 3: 1, 4: 0, 5: 1, 6: 0, 7: 0, 8: 0, 9: 0, 10: 1 },
     pageWidth: 148, pageHeight: 210, puzzlesPerPage: 1, title: 'Test Book', author: 'Tester',
     theme: 'forest', mode: 'light', seed: 'TEST-0001', largePrint: false, print: null,
-    copyright: { enabled: true, holder: '', year: 2026, isbn: '' }, cover: DEFAULT_COVER, inkSaver: false, barcodeArea: true, backCover: '',
+    copyright: { enabled: true, holder: '', year: 2026, isbn: '' }, cover: DEFAULT_COVER, inkSaver: false, barcodeArea: true, backCover: '', extras: DEFAULT_EXTRAS,
     ...over,
 });
 

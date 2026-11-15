@@ -4,8 +4,9 @@ import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { buildBook, coverTheme, uniquePuzzle } from '../lib/pdf/book';
 import { contrast } from '../lib/palette';
 import { getTheme } from '../lib/themes';
-import { DEFAULT_COVER, planPages } from '../lib/bookConfig';
+import { DEFAULT_COVER, DEFAULT_EXTRAS, planPages } from '../lib/bookConfig';
 import { scriptsIn, splitRuns, unsupportedIn } from '../lib/pdf/scripts';
+import { puzzleTitles, TITLE_COUNT } from '../lib/pdf/titles';
 import { buildBookInWorker } from '../lib/bookClient';
 import { loadFonts, loadFontsWithScripts, makePng, pageTexts, smallBook } from './helpers';
 
@@ -46,6 +47,36 @@ describe('book generator', () => {
         expect(again.puzzle).not.toEqual(first.puzzle);
         expect(seen.size).toBe(2);
         expect(uniquePuzzle(3, 'DUP-SEED', 0, new Set([first.puzzle.join('')])).puzzle).toEqual(again.puzzle);
+    });
+
+    it('adds notes pages after the solutions and lists them in the contents', async () => {
+        const base = smallBook();
+        const cfg = smallBook({ extras: { ...DEFAULT_EXTRAS, notesPages: 3, notesStyle: 'dotted' } });
+        expect(planPages(cfg).pages).toBe(planPages(base).pages + 3);
+        const r = await buildBook(cfg, fonts);
+        expect(r.pages).toBe(planPages(cfg).pages);
+        const texts = await pageTexts(r.interior);
+        expect(texts.filter((t) => /notes/i.test(t.replace(/\s/g, ''))).length).toBeGreaterThanOrEqual(4); // contents + three notes pages
+        const blank = await buildBook(smallBook({ extras: { ...DEFAULT_EXTRAS, notesPages: 2, notesStyle: 'blank' } }), fonts);
+        expect(blank.pages).toBe(planPages(base).pages + 2);
+    });
+
+    it('keeps print interiors even when notes pages are added', () => {
+        const print = { bleedMm: 3.175, bleedEdges: 'outer' as const, cropMarks: false, paper: 'white' as const };
+        for (let n = 0; n < 4; n++) expect(planPages(smallBook({ print, extras: { ...DEFAULT_EXTRAS, notesPages: n } })).pages % 2).toBe(0);
+    });
+
+    it('names puzzles uniquely and repeatably when asked to', async () => {
+        const names = puzzleTitles('NAMES-1', 500);
+        expect(new Set(names).size).toBe(500);
+        expect(puzzleTitles('NAMES-1', 500)).toEqual(names);
+        expect(puzzleTitles('NAMES-2', 5)).not.toEqual(names.slice(0, 5));
+        expect(TITLE_COUNT).toBeGreaterThanOrEqual(500);
+        const cfg = smallBook({ extras: { ...DEFAULT_EXTRAS, puzzleTitles: true } });
+        const squash = (pages: string[]) => pages.join('').replace(/\s/g, '');
+        const first = puzzleTitles(cfg.seed, 5)[0].replace(/\s/g, '');
+        expect(squash(await pageTexts((await buildBook(cfg, fonts)).interior))).toContain(first);
+        expect(squash(await pageTexts((await buildBook(smallBook(), fonts)).interior))).not.toContain(first);
     });
 
     it('is repeatable: the same seed and settings give the same pages', async () => {

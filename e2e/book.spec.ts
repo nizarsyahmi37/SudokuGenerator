@@ -131,3 +131,15 @@ test('single-board export downloads a themed PNG and a tagged PDF', async ({ pag
     const [pdf] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Blank' }).click()]);
     expect(pdf.suggestedFilename()).toMatch(/\.pdf$/);
 });
+
+test('extra pages: notes pages change the page count and the book still builds', async ({ page }) => {
+    await setCounts(page, 1);
+    const summary = page.locator('.create .step-head p');
+    const before = Number(/(\d+) pages/.exec((await summary.textContent()) ?? '')![1]);
+    await page.getByLabel(/^Notes pages at the back/).fill('3');
+    await expect(summary).toContainText(`${before + 3} pages`);
+    await expect(page.getByRole('radio', { name: 'Dotted' })).toBeAttached();
+    await page.getByLabel(/Give every puzzle a name/).check();
+    await build(page);
+    await expect(page.locator('.preview-count')).toContainText(`of ${before + 3}`);
+});

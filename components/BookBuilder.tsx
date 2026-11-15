@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, type Level } from '../lib/sudoku';
-import { DEFAULT_BLEED_MM, DEFAULT_COVER, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type CoverImage, type Paper } from '../lib/bookConfig';
+import { DEFAULT_BLEED_MM, DEFAULT_COVER, MAX_NOTES_PAGES, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type CoverImage, type NotesStyle, type Paper } from '../lib/bookConfig';
 import { buildBookInWorker, type BookJob } from '../lib/bookClient';
 import { downloadBlob, pdfBlob } from '../lib/download';
 import { cleanSeed, decodeBookCode, encodeBookCode } from '../lib/bookCode';
@@ -45,6 +45,9 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     const [bleedMm, setBleedMm] = useState(Number(DEFAULT_BLEED_MM.toFixed(3)));
     const [bleedEdges, setBleedEdges] = useState<'outer' | 'all'>('outer');
     const [cropMarks, setCropMarks] = useState(false);
+    const [puzzleTitles, setPuzzleTitles] = useState(false);
+    const [notesPages, setNotesPages] = useState(0);
+    const [notesStyle, setNotesStyle] = useState<NotesStyle>('lined');
     const [inkSaver, setInkSaver] = useState(false);
     const [barcodeArea, setBarcodeArea] = useState(true);
     const [paperStock, setPaperStock] = useState<Paper>('white');
@@ -128,8 +131,8 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
         copyright: { enabled: copyrightOn, holder, year, isbn },
         inkSaver, barcodeArea,
         cover: { ...DEFAULT_COVER, subtitle: coverSubtitle, bgColor: customColours ? coverBg : '', accentColor: customColours ? coverAccent : '', showGrid, image: coverImage },
-        backCover,
-    }), [counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, inkSaver, barcodeArea, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
+        backCover, extras: { puzzleTitles, notesPages, notesStyle },
+    }), [puzzleTitles, notesPages, notesStyle, counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, inkSaver, barcodeArea, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
     // The picture is left out of the key (it could be megabytes); its size and description stand in for it.
     const key = JSON.stringify({ ...cfg, cover: { ...cfg.cover, image: coverImage ? { n: coverImage.bytes.length, alt: coverImage.alt } : null } });
     const plan = planPages(cfg);
@@ -291,6 +294,24 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         <Radio name={`${uid}-per`} checked={(largePrint ? 1 : perPage) === 1} onChange={() => setPerPage(1)} disabled={largePrint}>1, larger boards</Radio>
                         <Radio name={`${uid}-per`} checked={!largePrint && perPage === 2} onChange={() => setPerPage(2)} disabled={largePrint}>2, compact</Radio>
                     </div>
+                </fieldset>
+                <fieldset className="plain" style={{ marginTop: 14 }}>
+                    <legend className="field-label">Extra pages</legend>
+                    <label className="check">
+                        <input type="checkbox" checked={puzzleTitles} onChange={(e) => setPuzzleTitles(e.target.checked)} />
+                        <span>Give every puzzle a name, such as “The Amber Fox”</span>
+                    </label>
+                    <label className="field" style={{ marginTop: 10 }}>Notes pages at the back (0 to {MAX_NOTES_PAGES})
+                        <input type="number" min={0} max={MAX_NOTES_PAGES} value={notesPages} onChange={(e) => setNotesPages(Math.max(0, Math.min(MAX_NOTES_PAGES, Math.floor(Number(e.target.value)) || 0)))} />
+                    </label>
+                    {notesPages > 0 && (
+                        <div className="chips" role="group" aria-label="Notes page style" style={{ marginTop: 10 }}>
+                            <Radio name={`${uid}-notes`} checked={notesStyle === 'lined'} onChange={() => setNotesStyle('lined')}>Lined</Radio>
+                            <Radio name={`${uid}-notes`} checked={notesStyle === 'dotted'} onChange={() => setNotesStyle('dotted')}>Dotted</Radio>
+                            <Radio name={`${uid}-notes`} checked={notesStyle === 'blank'} onChange={() => setNotesStyle('blank')}>Blank</Radio>
+                        </div>
+                    )}
+                    <p className="hint">Notes pages come after the solutions and are listed in the contents. Names are the same every time you rebuild with the same seed.</p>
                 </fieldset>
             </Step>
 
