@@ -30,6 +30,7 @@ export default function Game() {
     const [seconds, setSeconds] = useState(0);
     const [format, setFormat] = useState<ExportFormat>('pdf');
     const [exporting, setExporting] = useState(false);
+    const [plainExport, setPlainExport] = useState(false);
 
     const { fx: fxc, effects, mode, theme } = useTheme();
     const fxcRef = useRef(fxc);
@@ -158,7 +159,7 @@ export default function Game() {
         if (!game) return;
         setExporting(true);
         try {
-            await exportBoard({ puzzle: game.puzzle, solution: game.solution, title: `Level ${level} — ${LEVEL_NAMES[level]}` }, kind, format);
+            await exportBoard({ puzzle: game.puzzle, solution: game.solution, level, levelName: LEVEL_NAMES[level] }, kind, format, { theme, mode, plain: plainExport });
             setMessage({ text: `Exported the ${kind} board as ${format.toUpperCase()}.`, kind: 'ok' });
         } catch (e) {
             setMessage({ text: 'Export failed: ' + (e as Error).message, kind: 'err' });
@@ -285,6 +286,10 @@ export default function Game() {
                                     ))}
                                 </div>
                             </fieldset>
+                            <label className="check" style={{ marginTop: 12 }}>
+                                <input type="checkbox" checked={plainExport} onChange={(e) => setPlainExport(e.target.checked)} />
+                                <span>Plain black and white, for home printers</span>
+                            </label>
                             <div className="tools">
                                 <button type="button" disabled={exporting} onClick={() => doExport('blank')}>Blank</button>
                                 <button type="button" disabled={exporting} onClick={() => doExport('solved')}>Solved</button>
