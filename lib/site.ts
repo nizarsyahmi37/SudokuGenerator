@@ -15,5 +15,5 @@ export const SITE_DESCRIPTION = 'Play sudoku at ten difficulty levels graded by 
 export const ADS_ENABLED = Boolean(process.env.NEXT_PUBLIC_ADSENSE_CLIENT);
 
 /** Update when the policies change in substance. */
-export const LEGAL_UPDATED = '15 November 2026';
-export const LEGAL_UPDATED_ISO = '2026-11-15';
+export const LEGAL_UPDATED = '17 November 2026';
+export const LEGAL_UPDATED_ISO = '2026-11-17';
