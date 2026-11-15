@@ -1,20 +1,38 @@
 /** Source of randomness in [0, 1). Pass a seeded generator to make output repeatable. */
 export type Rand = () => number;
 
+import { LEVEL_BOUNDS, gradePuzzle } from './logic';
+
 export type Board = number[]; // 81 cells, row-major, 0 = empty
 export type Level = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 export const LEVELS: Level[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-/** Target number of given clues per level: fewer clues = harder. */
-export const CLUES: Record<Level, number> = {
-    1: 46, 2: 42, 3: 38, 4: 35, 5: 32, 6: 30, 7: 28, 8: 26, 9: 24, 10: 22,
+/**
+ * What a player needs to solve each level. Levels are graded by the hardest technique a human
+ * solver must use, not by how many clues are given.
+ */
+export const LEVEL_TECHNIQUES: Record<Level, string> = {
+    1: 'Naked singles only',
+    2: 'A few hidden singles',
+    3: 'Many hidden singles',
+    4: 'Locked candidates',
+    5: 'Naked and hidden pairs',
+    6: 'Hidden pairs, triples, X-Wing',
+    7: 'XY-Wing, XYZ-Wing, Swordfish',
+    8: 'A little trial and error',
+    9: 'More trial and error',
+    10: 'Heavy trial and error',
 };
 
 export const LEVEL_NAMES: Record<Level, string> = {
     1: 'Beginner', 2: 'Very easy', 3: 'Easy', 4: 'Casual', 5: 'Medium',
     6: 'Tricky', 7: 'Hard', 8: 'Very hard', 9: 'Expert', 10: 'Master',
 };
+
+/** Fewest clues allowed per level, so the easy levels also feel easy (they are not just sparse). */
+const MIN_CLUES: Record<Level, number> = { 1: 36, 2: 32, 3: 29, 4: 27, 5: 25, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
+
 
 const ROW = (i: number) => Math.floor(i / 9);
 const COL = (i: number) => i % 9;
@@ -108,36 +126,43 @@ export function generateSolved(rand: Rand = Math.random): Board {
 export interface Puzzle {
     puzzle: Board;
     solution: Board;
-}
-
-function carve(solution: Board, target: number, rand: Rand): Board {
-    const puzzle = [...solution];
-    let clues = 81;
-    for (const idx of shuffle(Array.from({ length: 81 }, (_, i) => i), rand)) {
-        if (clues <= target) break;
-        const saved = puzzle[idx];
-        puzzle[idx] = 0;
-        if (countSolutions(puzzle, 2) !== 1) puzzle[idx] = saved;
-        else clues--;
-    }
-    return puzzle;
+    /** The level this puzzle actually grades as (equals the requested level unless the attempt budget ran out). */
+    grade: number;
 }
 
 /**
- * Generates a puzzle with a unique solution. Cells are removed while uniqueness holds;
- * for the hardest levels the random order sometimes stalls above the target, so a few
- * attempts are made and the sparsest puzzle is kept. With a seeded `rand`, the same
- * seed always yields the same puzzle.
+ * Removes clues one at a time while the puzzle keeps a single solution and its logical grade does not
+ * overshoot `level`. Returns the final puzzle and its grade.
+ */
+function carve(solution: Board, level: Level, rand: Rand): { puzzle: Board; grade: number } {
+    const puzzle = [...solution];
+    let clues = 81, grade = 1;
+    for (const idx of shuffle(Array.from({ length: 81 }, (_, i) => i), rand)) {
+        if (clues <= MIN_CLUES[level]) break;
+        const saved = puzzle[idx];
+        puzzle[idx] = 0;
+        if (countSolutions(puzzle, 2) !== 1) { puzzle[idx] = saved; continue; }
+        clues--;
+        if (clues > 44) continue; // far too many clues to matter, skip grading
+        const g = gradePuzzle(puzzle, LEVEL_BOUNDS[level]);
+        if (g.score >= LEVEL_BOUNDS[level]) { puzzle[idx] = saved; clues++; continue; }
+        grade = g.level;
+    }
+    return { puzzle, grade: clues > 44 ? 1 : grade };
+}
+
+/**
+ * Generates a puzzle with a unique solution whose logical difficulty matches `level`. Candidates are
+ * carved from a solved grid and graded by a human-style solver, which never lets them get harder than
+ * the level asked for. With a seeded `rand` the same seed always yields the same puzzle.
  */
 export function generatePuzzle(level: Level = 5, rand: Rand = Math.random): Puzzle {
-    const target = CLUES[level];
     let best: Puzzle | null = null;
-    let bestClues = 82;
-    for (let attempt = 0; attempt < 30 && bestClues > target; attempt++) {
+    for (let attempt = 0; attempt < (level >= 6 ? 120 : 40); attempt++) {
         const solution = generateSolved(rand);
-        const puzzle = carve(solution, target, rand);
-        const clues = puzzle.filter(Boolean).length;
-        if (clues < bestClues) { best = { puzzle, solution }; bestClues = clues; }
+        const { puzzle, grade } = carve(solution, level, rand);
+        if (!best || grade > best.grade) best = { puzzle, solution, grade };
+        if (grade === level) break;
     }
     return best as Puzzle;
 }

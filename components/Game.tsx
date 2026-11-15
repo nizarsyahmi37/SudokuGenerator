@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Board, CLUES, LEVELS, LEVEL_NAMES, Level, Puzzle, findConflicts, generatePuzzle } from '../lib/sudoku';
+import { Board, LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, Level, Puzzle, findConflicts, generatePuzzle } from '../lib/sudoku';
 import { levelColor } from '../lib/bookConfig';
 import { readableOn, css } from '../lib/palette';
 import { ExportFormat, ExportKind, exportBoard } from '../lib/export';
@@ -254,7 +254,7 @@ export default function Game() {
                             <div role="group" aria-label="Level. Choosing one starts a new game." className="level-chips">
                                 {LEVELS.map((l) => (
                                     <button key={l} type="button" className={l === level ? 'lchip on' : 'lchip'} style={lcStyle(l)} aria-pressed={l === level}
-                                        aria-label={`Level ${l}, ${LEVEL_NAMES[l]}, ${CLUES[l]} clues. Starts a new game.`} onClick={() => { setDifficulty(l); newGame(l); }}>{l}</button>
+                                        aria-label={`Level ${l}, ${LEVEL_NAMES[l]}, ${LEVEL_TECHNIQUES[l]}. Starts a new game.`} onClick={() => { setDifficulty(l); newGame(l); }}>{l}</button>
                                 ))}
                             </div>
                             <div className="toolbar">

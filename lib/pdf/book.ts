@@ -1,4 +1,4 @@
-import { CLUES, LEVELS, LEVEL_NAMES, generatePuzzle, type Level, type Puzzle } from '../sudoku';
+import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, generatePuzzle, type Level, type Puzzle } from '../sudoku';
 import { puzzleRng, normalizeSeed, seeded } from '../rng';
 import { contrast, ensure, mix, readableOn, type RGB } from '../palette';
 import { getTheme, type Theme } from '../themes';
@@ -273,7 +273,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
                 k.tag('P', () => {
                     k.text(String(l), b.x0 + 1, ry - rowH * 0.28, { font: 'serifBold', size: f, color: t.ink });
                     k.text(LEVEL_NAMES[l], b.x0 + 9, ry - rowH * 0.28, { font: 'serif', size: f, color: t.ink });
-                    k.text(`${CLUES[l]} clues`, b.x1, ry - rowH * 0.28, { font: 'serifItalic', size: Math.min(lp ? 13 : 9, rowH * 1.5), color: muted, align: 'right' });
+                    k.text(LEVEL_TECHNIQUES[l], b.x1, ry - rowH * 0.28, { font: 'serifItalic', size: Math.min(lp ? 13 : 9, rowH * 1.5), color: muted, align: 'right' });
                 });
                 hairline(b.x0, ry, b.x1);
             });

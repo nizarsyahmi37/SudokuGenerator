@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { LEVELS, LEVEL_NAMES, CLUES, type Level } from '../lib/sudoku';
+import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, type Level } from '../lib/sudoku';
 import { DEFAULT_BLEED_MM, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type Paper } from '../lib/bookConfig';
 import { buildBookInWorker, type BookJob } from '../lib/bookClient';
 import { downloadBlob, pdfBlob } from '../lib/download';
@@ -135,7 +135,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                     {LEVELS.map((l) => (
                         <div key={l} className={`level-row${counts[l] ? ' active' : ''}`} style={{ ['--lc' as string]: css(levelColor(l)) }}>
                             <span className="dot" aria-hidden="true" />
-                            <span className="lname"><b>Level {l}</b><em>{LEVEL_NAMES[l]} · {CLUES[l]} clues</em></span>
+                            <span className="lname"><b>Level {l}</b><em>{LEVEL_NAMES[l]} · {LEVEL_TECHNIQUES[l]}</em></span>
                             <span className="stepper" role="group" aria-label={`Level ${l} puzzles`}>
                                 <button type="button" aria-label={`Fewer level ${l} puzzles`} onClick={() => setCount(l, counts[l] - 1)}>−</button>
                                 <input type="number" inputMode="numeric" min={0} max={MAX_TOTAL} value={counts[l]} onChange={(e) => setCount(l, Number(e.target.value))} aria-label={`Number of level ${l} puzzles`} />
