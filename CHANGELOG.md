@@ -6,73 +6,109 @@ All notable changes to this project are recorded here. Commits follow [Conventio
 
 | Scope | Covers |
 | --- | --- |
-| `generator` | Sudoku generator, solver and difficulty levels |
+| `generator` | Sudoku generator, solver, grading and levels |
 | `rng` | Seeded random numbers and repeatable output |
-| `book` | Puzzle book configuration, generator, worker, preview and builder UI |
-| `pdf` | Tagged PDF toolkit and embedded fonts |
+| `book` | Puzzle book configuration, generator, worker, preview, builder UI, covers and codes |
+| `pdf` | Tagged PDF toolkit, embedded fonts and alphabets |
 | `export` | Single-board PDF, PNG and JPG export |
 | `theme` | Palettes, light and dark mode, theme settings |
 | `effects` | Three.js backgrounds and Phaser particles |
-| `game` | The playable board and its controls |
+| `game` | The playable board, hints, notes, saving, daily puzzle, sharing and statistics |
 | `ui` | Global styling |
-| `app` | Next.js App Router structure |
+| `app` | Next.js App Router structure, error pages and health check |
 | `ads` | AdSense slot |
 | `consent` | Consent banner and ad loading rules |
 | `legal` | Privacy policy, accessibility statement and footer |
+| `seo` | Metadata, social cards, icons, manifest, robots and sitemap |
+| `security` | Security headers and Content-Security-Policy |
+| `a11y` | Accessibility audits |
+| `e2e` | Playwright browser tests |
+| `core` | Unit tests across modules |
 | `lint`, `ci`, `git`, `deps`, `project`, `repo` | Tooling, workflow and repository housekeeping |
-| `core` | Test suite across modules |
-| `readme`, `changelog` | Documentation |
+| `readme`, `changelog`, `testing` | Documentation |
 
 ## [Unreleased]
 
 ### Features
 
-- **legal:** add privacy and cookie policy, accessibility statement and footer ([`ee4889b`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/ee4889bf4c706f2ae3141560da9538e0125c3c7c))
-- **consent:** ask before loading ads and respect the choice ([`2981c3f`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/2981c3f136d69aa022ead99e01ba3cf0e6fd657f))
-- **export:** theme single-board PNG, JPG and PDF exports ([`85f9f55`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/85f9f55caf7646663b03aa0e0cd3c57d6c427c4c))
-- **book:** add print, large print, seed and copyright options to the builder ([`7392378`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/7392378faf1adde5c5939e21b85848b8530a460f))
-- **book:** preview books page by page before downloading ([`6d16ab5`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/6d16ab50b58518959af1035b14b5eb02df4b0b15))
-- **book:** build books in a web worker ([`8b7350b`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/8b7350b9602a5f2fff908f43836ca1b31e4ed137))
-- **book:** add print-ready, large print and seeded book generator ([`6d58822`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/6d58822096df7e1b08c261d6884733214a2ba409))
-- **pdf:** add tagged PDF toolkit with embedded fonts ([`52d6ca9`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/52d6ca9cc0ca773f14cf0e4cd3583c93b73333c0))
-- **book:** add book configuration for trim sizes, bleed and spine width ([`8efb907`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/8efb907d363ab9a19ece11f1eada3a2a7bbaddeb))
-- **rng:** add seeded random generation for repeatable puzzles ([`ed06a1e`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/ed06a1e2c448070733a96f7a3a43cb525afb7527))
-- **game:** add playable board with keyboard and screen reader support ([`02987b5`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/02987b5e831382ae7f8509ec040307d6e5dc685d))
-- **ads:** add AdSense slot that only renders when an ad is filled ([`76b2944`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/76b2944d2c23af7971df4967355e5046f2447606))
-- **book:** add book builder interface ([`866b943`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/866b943e59fb1587a9304017c3a121acd26017d0))
-- **effects:** add themed Three.js backgrounds and Phaser particles ([`edede48`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/edede481d326b85efbe55b09b30ba0ec5fecd86a))
-- **theme:** add theme provider and display settings ([`bd4ff74`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/bd4ff7442cb4c2d3bc1e8139caca75f3b8d5786d))
-- **book:** add themed puzzle book PDF generator ([`d3fdb70`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/d3fdb706b0e01b2a9c8be6dc01a3fa137c3c91b7))
-- **theme:** add WCAG-checked palette engine with light and dark modes ([`b5397c0`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/b5397c06a972588c9b4fdb1f697e8b698875837d))
+- **app:** add styled 404 and error pages and a health check ([`9b62c75`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/9b62c7562841bafd4155021fcef8eb102e5b76d6))
+- **security:** add security headers and a Content-Security-Policy for AdSense ([`27f4954`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/27f495412c2da7dbf9a5eaa396938384e4855b43))
+- **seo:** add metadata, social cards, icons, manifest, robots and sitemap ([`30fa957`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/30fa9579c1ff8214872abc3ef9fa2fd713160ac0))
+- **book:** fall back to the main thread when Web Workers are unavailable ([`2961474`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/2961474cbc07c3d6c9d6e82ce14ed78e7853d3db))
+- **pdf:** set text in Cyrillic, Greek, Vietnamese and Latin Extended ([`bb0f327`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/bb0f32799d78e90fa56f0a8b298787b2ba7bb69d))
+- **book:** add shareable book codes that capture the seed and puzzle counts ([`dc0d8d5`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/dc0d8d56dbf160df69022ac68bf6dd83bc2b77b6))
+- **book:** make the back cover barcode area optional ([`5dd3302`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/5dd3302b55263a5882454ef8af8d00c824ccad33))
+- **book:** add a black-and-white ink-saving mode for print ([`07ed23d`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/07ed23d383f662367c11f90268e7dbf5b3c2c9c7))
+- **book:** add cover options for subtitle, colours, picture and grid ([`b6add79`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/b6add7990e1c2aef7b18180e15e6406af329b25b))
+- **game:** add save and resume, undo, notes, explained hints, daily puzzle, sharing and statistics ([`5453214`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/545321466264d7c25ce9cadff1ebd51715001c7b))
+- **game:** add saveable game state with undo, redo, notes, daily puzzle and share links ([`5335924`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/5335924575ef2ae34a96c01496d7022c8aa3e0ce))
+- **generator:** grade puzzles by solving technique, not clue count ([`567ee42`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/567ee427fa30e8ff367ec64f0b39750d03d8d9dc))
+- **legal:** add privacy and cookie policy, accessibility statement and footer ([`470f08f`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/470f08f5e33e61576c70e3c808611c2f135a82ce))
+- **consent:** ask before loading ads and respect the choice ([`102fa6b`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/102fa6b9c6e88504f667a150a946a0c16eb91678))
+- **export:** theme single-board PNG, JPG and PDF exports ([`3d42192`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/3d4219257b922371887b49a1eeef8cd0cd3ddeac))
+- **book:** add print, large print, seed and copyright options to the builder ([`9e8dfe4`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/9e8dfe4503323a6ca0e97c01d6129a25eb34af23))
+- **book:** preview books page by page before downloading ([`0b860a6`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/0b860a631606f50f89300fdbcc1d0a9ea1a627f8))
+- **book:** build books in a web worker ([`cc04208`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/cc0420806132b90950bf8ba4bc8b741140d6ac41))
+- **book:** add print-ready, large print and seeded book generator ([`e1451bf`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/e1451bf89b79f85f53db2e2ea19a7b8e00f41087))
+- **pdf:** add tagged PDF toolkit with embedded fonts ([`126f6d0`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/126f6d054fbec4efa31c5d92d8d496710e771e72))
+- **book:** add book configuration for trim sizes, bleed and spine width ([`3803faa`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/3803faadbb34e9ddf93aba014b2e68960b9e65cd))
+- **rng:** add seeded random generation for repeatable puzzles ([`75b987c`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/75b987cb9d122d7f37d218327e2cc73ca40a35c8))
+- **game:** add playable board with keyboard and screen reader support ([`9de32e1`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/9de32e1d44462dd8d62a22eecf47452c851842db))
+- **ads:** add AdSense slot that only renders when an ad is filled ([`8130656`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/8130656973146a32907b685592d48fc7333c3b86))
+- **book:** add book builder interface ([`f4c3e5e`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/f4c3e5e39230d6b8a82ffa21305538798809acd0))
+- **effects:** add themed Three.js backgrounds and Phaser particles ([`b116bf5`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/b116bf57878e90c1b5b660f62c89df1bd693b480))
+- **theme:** add theme provider and display settings ([`dae00c4`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/dae00c467e0cef363709a9fd5ef83b94a59f221f))
+- **book:** add themed puzzle book PDF generator ([`521317c`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/521317c618a755cf689032d82931c2a2b7c59f72))
+- **theme:** add WCAG-checked palette engine with light and dark modes ([`338c97b`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/338c97b740334d7a722e6e043a57b1b6497d8f23))
 - **export:** add PDF, PNG and JPG export for single boards ([`810d52b`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/810d52b079423c1c06994dbd07e1a956c85ac541))
 - **generator:** add sudoku generator, solver and ten difficulty levels ([`a7dbaaf`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/a7dbaaf3928dda2390598217beb68574d8d1b300))
 
+### Bug fixes
+
+- **effects:** mount the particle layer only while effects are on ([`db65fb9`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/db65fb9c5d54edf5cbe9ef454d429aac793c75ff))
+- **ui:** use two columns for the tool buttons on narrow screens ([`fa5d048`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/fa5d048cb1ff838a0d90f61c3d067beefbd3b3d1))
+- **theme:** pick the better of black or white when nudging colours on mid-tones ([`c3278a0`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/c3278a0c2cc8ddb1c20ac9fda1ce57dda101cfde))
+- **effects:** stop overlapping sun layers from z-fighting ([`2e5a4f6`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/2e5a4f6b069cb59497b79f4ac823f479a1a9a344))
+- **ui:** put the footer on an opaque panel ([`b60ed39`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/b60ed39cfb8360612031881aeb8eb20f444cbd41))
+- **game:** start the timer on the first board interaction ([`ab15c60`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/ab15c60989d7c59d533ae3a3ef268a3b709ad955))
+
 ### Refactoring
 
-- **lint:** resolve React Hooks and typing violations ([`f4a077c`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/f4a077c9e4c98fce56ec15da71d720b241358b3a))
-- **app:** migrate from Pages Router to App Router ([`879eef4`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/879eef427e38d113c459b40bbf3e698456140938))
+- **lint:** resolve React Hooks and typing violations ([`0417d7f`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/0417d7faedd67c0406eb8ae93bedff4951efabcc))
+- **app:** migrate from Pages Router to App Router ([`3b5d034`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/3b5d034690e879979bfb31c7298c1f40c6619647))
 
 ### Styling
 
-- **ui:** add responsive light and dark styling ([`43420e1`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/43420e1b540cd4eb7421fbeac94eb88eb8487f72))
+- **ui:** add responsive light and dark styling ([`43d3f7c`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/43d3f7c13c2c267a4fae19a44f54f23947d4cfb5))
 
 ### Tests
 
-- **core:** add Vitest suite for generator, seeding, contrast and books ([`f6cacb1`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/f6cacb1ff6ccf3b5542ceaf858709a4b320748f7))
+- **e2e:** add Playwright browser tests that run against production builds ([`e32a4a2`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/e32a4a2ebf720702b0e79827f6db73dd2705f340))
+- **a11y:** add a browser contrast audit for every theme and mode ([`c9de0f4`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/c9de0f4514f6f74ec238361327272955ef3d27c9))
+- **core:** add Vitest suite for generator, seeding, contrast and books ([`36e6d5e`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/36e6d5e098a069c6232823dcf6b0ac2ed64945e3))
 
 ### Continuous integration
 
-- **github:** run lint, typecheck, tests and build on every push ([`5e8bc53`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/5e8bc531c963228fdc992bd502982f14840019e4))
+- **github:** add a weekly canary run on Ubuntu 26.04 ([`bc85228`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/bc852281aa4c1491f10c1322528061e96c15ef09))
+- **github:** pin the runners to Ubuntu 24.04 ([`fee8610`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/fee8610fbb64fad598a0a7b1f29f285ae985f332))
+- **github:** also run on ci branches and allow manual runs ([`ff3db66`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/ff3db66c5a826ed9e023310e2e0eef0865ec15c9))
+- **github:** add a browser test job ([`37f8a1e`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/37f8a1ee44f3a8a17784b43ca55eb6dd13146370))
+- **github:** run lint, typecheck, tests and build on every push ([`bc57bcd`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/bc57bcdf4ae66d63c642f0089ec9b91aaa32d985))
 
 ### Chores
 
-- **git:** ignore env files, normalise line endings and mark the package private ([`4f527cc`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/4f527cc9d37952981b14336ba41db1f590f2fb84))
-- **lint:** add ESLint flat config and replace the removed next lint ([`22cc7fc`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/22cc7fc2dccf0bae584685b244016d48c270d707))
+- **git:** ignore env files, normalise line endings and mark the package private ([`beec339`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/beec339b98ac9406d7d00daf88147a087c535303))
+- **lint:** add ESLint flat config and replace the removed next lint ([`7ccdfc9`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/7ccdfc98514231004425a580f3b706969a40e56b))
 - **deps:** upgrade Next.js, React and TypeScript to latest ([`4edfc38`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/4edfc3836fb87a2f3b159d5d289c3317db77d5cd))
 
 ### Documentation
 
-- **readme:** document features, scripts, configuration and ads ([`e19e383`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/e19e3830fb4d20f82d6b09e6d0d780cfaf22cec0))
+- **legal:** state the WCAG, ATAG and UAAG scope in the accessibility statement ([`3cc9f50`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/3cc9f50313287a4d96512648fef09df9d8cfc1b4))
+- **readme:** document the new play and book features, testing and deployment ([`a3d3718`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/a3d3718b5db837417d22417be97cbbe0563c9105))
+- **testing:** add a guide for the checks that need a person ([`d41bd5f`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/d41bd5f569a7d3fc829f45372432b14c7075ed1f))
+- **legal:** describe the saved game and statistics in the policies ([`75b848a`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/75b848a8954b7aebeb7dc34c03aeb4f577965c66))
+- **changelog:** add structured changelog ([`995af2e`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/995af2eaecc8770b13c8fdc44b263a45c3c65734))
+- **readme:** document features, scripts, configuration and ads ([`e16ca8b`](https://github.com/nizarsyahmi37/SudokuGenerator/commit/e16ca8b70cea30ddd758ee0f17a37d71bc397c3c))
 
 ## Initial scaffolding (April 2023)
 
