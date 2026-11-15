@@ -112,7 +112,11 @@ function drawFrontCover(k: Kit, t: Theme, cfg: BookConfig, o: FrontCoverArgs) {
     });
 }
 
-export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Progress): Promise<BookResult> {
+/**
+ * Builds the whole book. `yieldToUi` is only for the main-thread fallback: it is awaited between puzzles
+ * and pages so the browser can paint and respond while a large book is being made.
+ */
+export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Progress, yieldToUi?: () => Promise<void>): Promise<BookResult> {
     const ink = !!cfg.print && cfg.inkSaver;
     const t = ink ? INK_SAVER : getTheme(cfg.theme, cfg.mode);
     const spot = spotOf(t);
@@ -136,6 +140,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
         for (let n = 0; n < (cfg.counts[level] || 0); n++) {
             entries.push({ ...generatePuzzle(level, puzzleRng(seed, level, n)), level, number: entries.length + 1 });
             onProgress?.(entries.length, total, 'Generating puzzles');
+            if (yieldToUi && entries.length % 2 === 0) await yieldToUi();
         }
     }
 
@@ -381,6 +386,7 @@ export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Pr
         });
         folio();
         onProgress?.(Math.min(i + per, entries.length), entries.length, 'Laying out puzzles');
+        if (yieldToUi) await yieldToUi();
     }
 
     // ---- 5. Solutions ----

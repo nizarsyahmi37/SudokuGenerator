@@ -67,6 +67,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     const [imageError, setImageError] = useState('');
     const [progress, setProgress] = useState({ text: '', pct: 0, error: false });
     const [busy, setBusy] = useState(false);
+    const [notice, setNotice] = useState('');
     const [built, setBuilt] = useState<{ result: BookResult; key: string } | null>(null);
     const [which, setWhich] = useState<'interior' | 'cover'>('interior');
     const [copied, setCopied] = useState(false);
@@ -144,6 +145,8 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
         setBuilt(null);
         setProgress({ text: 'Starting…', pct: 0, error: false });
         const job = buildBookInWorker(cfg, (done, all, phase) => setProgress({ text: `${phase}… ${done} of ${all}`, pct: all ? (done / all) * 100 : 0, error: false }));
+        if (job.mode === 'main') setNotice('This browser cannot run background workers, so the book is built on this page. It may pause briefly while it works.');
+        else setNotice('');
         jobRef.current = job;
         try {
             const result = await job.promise;
@@ -403,6 +406,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                     <button type="button" className="cta" disabled={!canBuild} onClick={build}>{busy ? 'Building…' : built ? 'Build again' : 'Build book'}</button>
                     {busy && <button type="button" className="cancel" onClick={() => jobRef.current?.cancel()}>Cancel</button>}
                 </div>
+                {notice && <p className="hint" role="status">{notice}</p>}
                 {(busy || progress.text) && (
                     <>
                         {busy && <progress className="bar" max={100} value={progress.pct} aria-label="Book progress" />}

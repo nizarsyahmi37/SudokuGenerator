@@ -5,6 +5,7 @@ import { contrast } from '../lib/palette';
 import { getTheme } from '../lib/themes';
 import { DEFAULT_COVER, planPages } from '../lib/bookConfig';
 import { scriptsIn, splitRuns, unsupportedIn } from '../lib/pdf/scripts';
+import { buildBookInWorker } from '../lib/bookClient';
 import { loadFonts, loadFontsWithScripts, makePng, pageTexts, smallBook } from './helpers';
 
 const fonts = loadFonts();
@@ -128,5 +129,22 @@ describe('book generator', () => {
         expect(splitRuns('日本').map((r) => r.text).join('')).toBe('??');
         expect(unsupportedIn('Sudoku 数独', 'عربى')).toEqual(['Arabic', 'Chinese, Japanese or Korean']);
         expect(unsupportedIn('Ünïcödé Ñ')).toEqual([]);
+    });
+
+    it('falls back to the main thread without Web Worker support, with the same result', async () => {
+        const cfg = smallBook();
+        expect(typeof Worker).toBe('undefined'); // plain Node has no Web Workers, like a very old browser
+        const steps: string[] = [];
+        const job = buildBookInWorker(cfg, (_d, _t, phase) => steps.push(phase), { loadFonts: async () => fonts });
+        expect(job.mode).toBe('main');
+        const viaMain = await job.promise;
+        expect(steps).toContain('Generating puzzles');
+        expect(await pageTexts(viaMain.interior)).toEqual(await pageTexts((await buildBook(cfg, fonts)).interior));
+    });
+
+    it('the main-thread fallback can be cancelled', async () => {
+        const job = buildBookInWorker(smallBook(), () => {}, { loadFonts: async () => fonts, forceMain: true });
+        job.cancel();
+        await expect(job.promise).rejects.toThrow('Cancelled');
     });
 });
