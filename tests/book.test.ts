@@ -104,4 +104,12 @@ describe('book generator', () => {
         expect(await pageTexts(mono.interior)).toEqual(await pageTexts(color.interior));
         expect(mono.interior.length).toBeLessThan(color.interior.length * 1.5); // sanity: no pictures embedded
     });
+
+    it('barcode area is optional on the cover wrap', async () => {
+        const print = { bleedMm: 3.175, bleedEdges: 'outer' as const, cropMarks: false, paper: 'white' as const };
+        const withBox = await buildBook(smallBook({ print, barcodeArea: true }), fonts);
+        const without = await buildBook(smallBook({ print, barcodeArea: false }), fonts);
+        expect((withBox.cover as Uint8Array).length).toBeGreaterThan((without.cover as Uint8Array).length - 1);
+        expect(without.cover).toBeDefined();
+    });
 });

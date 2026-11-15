@@ -44,6 +44,7 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     const [bleedEdges, setBleedEdges] = useState<'outer' | 'all'>('outer');
     const [cropMarks, setCropMarks] = useState(false);
     const [inkSaver, setInkSaver] = useState(false);
+    const [barcodeArea, setBarcodeArea] = useState(true);
     const [paperStock, setPaperStock] = useState<Paper>('white');
     const [title, setTitle] = useState('Sudoku Puzzle Book');
     const [author, setAuthor] = useState('');
@@ -108,10 +109,10 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
         counts, pageWidth: w, pageHeight: h, puzzlesPerPage: largePrint ? 1 : perPage, title, author, theme, mode: paper, seed: seedNorm, largePrint,
         print: printing ? { bleedMm, bleedEdges, cropMarks, paper: paperStock } : null,
         copyright: { enabled: copyrightOn, holder, year, isbn },
-        inkSaver,
+        inkSaver, barcodeArea,
         cover: { ...DEFAULT_COVER, subtitle: coverSubtitle, bgColor: customColours ? coverBg : '', accentColor: customColours ? coverAccent : '', showGrid, image: coverImage },
         backCover,
-    }), [counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, inkSaver, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
+    }), [counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, inkSaver, barcodeArea, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
     // The picture is left out of the key (it could be megabytes); its size and description stand in for it.
     const key = JSON.stringify({ ...cfg, cover: { ...cfg.cover, image: coverImage ? { n: coverImage.bytes.length, alt: coverImage.alt } : null } });
     const plan = planPages(cfg);
@@ -235,6 +236,11 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                             <input type="checkbox" checked={inkSaver} onChange={(e) => setInkSaver(e.target.checked)} />
                             <span>Ink saver: black and white only, no coloured pages, fills or cover picture</span>
                         </label>
+                        <label className="check">
+                            <input type="checkbox" checked={barcodeArea} onChange={(e) => setBarcodeArea(e.target.checked)} />
+                            <span>Leave a white area for the ISBN barcode on the back cover</span>
+                        </label>
+                        <p className="hint">Optional. The book does not generate barcodes: add the one you bought, or leave the area blank and let your printer place theirs (Amazon KDP does this when you do not have an ISBN).</p>
                         <label className="check">
                             <input type="checkbox" checked={cropMarks} onChange={(e) => setCropMarks(e.target.checked)} />
                             <span>Add crop marks (most print-on-demand services do not want them)</span>

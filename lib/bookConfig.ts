@@ -86,6 +86,8 @@ export interface BookConfig {
     cover: CoverOptions;
     /** Print only: black and white, no coloured pages, fills or pictures, to save ink. */
     inkSaver: boolean;
+    /** Print only: keep a white box on the back cover for an ISBN barcode (yours, or the one the printer adds). */
+    barcodeArea: boolean;
     /** Short text for the back cover (print) */
     backCover: string;
 }

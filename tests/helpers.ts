@@ -14,7 +14,7 @@ export const smallBook = (over: Partial<BookConfig> = {}): BookConfig => ({
     counts: { 1: 2, 2: 0, 3: 1, 4: 0, 5: 1, 6: 0, 7: 0, 8: 0, 9: 0, 10: 1 },
     pageWidth: 148, pageHeight: 210, puzzlesPerPage: 1, title: 'Test Book', author: 'Tester',
     theme: 'forest', mode: 'light', seed: 'TEST-0001', largePrint: false, print: null,
-    copyright: { enabled: true, holder: '', year: 2026, isbn: '' }, cover: DEFAULT_COVER, inkSaver: false, backCover: '',
+    copyright: { enabled: true, holder: '', year: 2026, isbn: '' }, cover: DEFAULT_COVER, inkSaver: false, barcodeArea: true, backCover: '',
     ...over,
 });
 

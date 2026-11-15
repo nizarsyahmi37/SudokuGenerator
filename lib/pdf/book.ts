@@ -472,7 +472,7 @@ async function buildCover({ cfg, t, fonts, pages, spineMm, bleed, slug, total, s
     const blurb = cfg.backCover.trim() || `${total} sudoku puzzles in ten levels of difficulty, every one with a single solution, plus a full answer key at the back.`;
     const bLines = k.wrap(blurb, TW - 2 * M - GUT * 2, { font: 'serif', size: 11 * Math.max(sc, 0.85) });
     k.tag('P', () => bLines.forEach((ln, i) => k.text(ln, M + GUT, H * 0.22 + i * 5.4, { font: 'serif', size: 11 * Math.max(sc, 0.85), color: t.ink })));
-    k.artifact(() => k.rect(TW - 6.35 - 50.8, H - 6.35 - 30.5, 50.8, 30.5, { fill: [255, 255, 255] }));
+    if (cfg.barcodeArea) k.artifact(() => k.rect(TW - 6.35 - 50.8, H - 6.35 - 30.5, 50.8, 30.5, { fill: [255, 255, 255] })); // 2 x 1.2 in, 0.25 in from the trim
 
     // spine (needs 79+ pages for text, as most print-on-demand services require)
     k.artifact(() => {
