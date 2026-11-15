@@ -21,7 +21,8 @@ export function buildScene(T: T3, scene: THREE_NS.Scene, th: Theme): SceneUpdate
     scene.add(sun);
 
     const solid = (c: THREE_NS.Color, opacity = 1) => new T.MeshLambertMaterial({ color: c, flatShading: true, transparent: opacity < 1, opacity });
-    const basic = (c: THREE_NS.Color, opacity = 1, side: THREE_NS.Side = T.FrontSide) => new T.MeshBasicMaterial({ color: c, transparent: opacity < 1, opacity, side });
+    // Translucent layers never write depth, and stacked layers are ordered explicitly, so coplanar discs cannot z-fight.
+    const basic = (c: THREE_NS.Color, opacity = 1, side: THREE_NS.Side = T.FrontSide) => new T.MeshBasicMaterial({ color: c, transparent: opacity < 1, opacity, side, depthWrite: opacity >= 1 });
 
     /** Particle cloud helper. */
     const points = (n: number, place: (i: number) => [number, number, number], color: THREE_NS.Color | THREE_NS.Color[], size: number, opacity = 0.9) => {
@@ -170,8 +171,8 @@ export function buildScene(T: T3, scene: THREE_NS.Scene, th: Theme): SceneUpdate
         // ------------------------------------------------------------------ sunset
         case 'sunset': {
             const sunG = new T.Group();
-            for (let i = 0; i < 5; i++) { const h = new T.Mesh(new T.CircleGeometry(9 + i * 2.2, 48), basic(mixc(th.accent, th.page, 0.5 + i * 0.1), 0.35 - i * 0.05)); h.position.z = -i * 0.01; sunG.add(h); }
-            sunG.add(new T.Mesh(new T.CircleGeometry(8, 48), basic(mixc(th.accent, th.primary, 0.3))));
+            for (let i = 0; i < 5; i++) { const h = new T.Mesh(new T.CircleGeometry(9 + i * 2.2, 48), basic(mixc(th.accent, th.page, 0.5 + i * 0.1), 0.35 - i * 0.05)); h.position.z = -0.4 - i * 0.4; h.renderOrder = i; sunG.add(h); }
+            const core = new T.Mesh(new T.CircleGeometry(8, 48), basic(mixc(th.accent, th.primary, 0.3))); core.position.z = 0.4; core.renderOrder = 10; sunG.add(core);
             sunG.position.set(0, 1, -45); sunG.scale.setScalar(1.3); scene.add(sunG);
             [[0.55, -10, -38, 3], [0.35, -11, -26, 2.2], [0.15, -12, -14, 1.5]].forEach(([f, y, z, amp], li) => {
                 const shape = new T.Shape(); shape.moveTo(-80, -20);
@@ -251,8 +252,8 @@ export function buildScene(T: T3, scene: THREE_NS.Scene, th: Theme): SceneUpdate
         }
         // ------------------------------------------------------------------ cyber
         case 'cyber': {
-            const sunD = new T.Mesh(new T.CircleGeometry(11, 48), basic(col(th.primary), 0.9)); sunD.position.set(0, 3, -55); scene.add(sunD);
-            const halo = new T.Mesh(new T.CircleGeometry(16, 48), basic(col(th.primary), 0.15)); halo.position.set(0, 3, -56); scene.add(halo);
+            const sunD = new T.Mesh(new T.CircleGeometry(11, 48), basic(col(th.primary), 0.9)); sunD.position.set(0, 3, -55); sunD.renderOrder = 2; scene.add(sunD);
+            const halo = new T.Mesh(new T.CircleGeometry(16, 48), basic(col(th.primary), 0.15)); halo.position.set(0, 3, -57); halo.renderOrder = 1; scene.add(halo);
             const grid = new T.GridHelper(160, 80, col(th.accent), col(th.filled));
             grid.position.y = -9; (grid.material as THREE_NS.Material).transparent = true; (grid.material as THREE_NS.Material).opacity = 0.6; scene.add(grid);
             for (let i = 0; i < 40; i++) {
@@ -296,8 +297,8 @@ export function buildScene(T: T3, scene: THREE_NS.Scene, th: Theme): SceneUpdate
         // ------------------------------------------------------------------ desert
         case 'desert': {
             const sunG = new T.Group();
-            for (let i = 0; i < 4; i++) sunG.add(new T.Mesh(new T.CircleGeometry(6 + i * 2.5, 48), basic(mixc(th.accent, th.page, 0.75), 0.28)));
-            sunG.add(new T.Mesh(new T.CircleGeometry(5.5, 48), basic(mixc(th.primary, th.page, 0.2))));
+            for (let i = 0; i < 4; i++) { const h = new T.Mesh(new T.CircleGeometry(6 + i * 2.5, 48), basic(mixc(th.accent, th.page, 0.75), 0.28)); h.position.z = -0.4 - i * 0.4; h.renderOrder = i; sunG.add(h); }
+            const core = new T.Mesh(new T.CircleGeometry(5.5, 48), basic(mixc(th.primary, th.page, 0.2))); core.position.z = 0.4; core.renderOrder = 10; sunG.add(core);
             sunG.position.set(12, 8, -45); scene.add(sunG);
             [[0.3, -12, -40, 6], [0.5, -12.5, -28, 4.5], [0.7, -13, -16, 3]].forEach(([f, y, z, amp], li) => {
                 const shape = new T.Shape(); shape.moveTo(-90, -25);
