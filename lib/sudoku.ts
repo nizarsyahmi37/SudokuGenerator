@@ -1,3 +1,6 @@
+/** Source of randomness in [0, 1). Pass a seeded generator to make output repeatable. */
+export type Rand = () => number;
+
 export type Board = number[]; // 81 cells, row-major, 0 = empty
 export type Level = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
@@ -17,10 +20,10 @@ const ROW = (i: number) => Math.floor(i / 9);
 const COL = (i: number) => i % 9;
 const BOX = (i: number) => Math.floor(ROW(i) / 3) * 3 + Math.floor(COL(i) / 3);
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], rand: Rand): T[] {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Math.floor(rand() * (i + 1));
         [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
@@ -30,7 +33,7 @@ function shuffle<T>(arr: T[]): T[] {
  * Backtracking search using bitmasks and the "most constrained cell" heuristic.
  * Calls onSolution for each solution found; stops once it returns true.
  */
-function search(board: Board, onSolution: (b: Board) => boolean, randomize: boolean): boolean {
+function search(board: Board, onSolution: (b: Board) => boolean, rand: Rand | null): boolean {
     const rows = new Array(9).fill(0);
     const cols = new Array(9).fill(0);
     const boxes = new Array(9).fill(0);
@@ -65,7 +68,7 @@ function search(board: Board, onSolution: (b: Board) => boolean, randomize: bool
 
         let digits: number[] = [];
         for (let d = 1; d <= 9; d++) if (bestMask & (1 << d)) digits.push(d);
-        if (randomize) digits = shuffle(digits);
+        if (rand) digits = shuffle(digits, rand);
 
         const r = ROW(best), c = COL(best), b = BOX(best);
         for (const d of digits) {
@@ -85,20 +88,20 @@ function search(board: Board, onSolution: (b: Board) => boolean, randomize: bool
 /** Returns a solved copy of the board, or null if unsolvable. */
 export function solve(board: Board): Board | null {
     let result: Board | null = null;
-    search([...board], (b) => { result = [...b]; return true; }, false);
+    search([...board], (b) => { result = [...b]; return true; }, null);
     return result;
 }
 
 /** Counts solutions, stopping early at `limit`. */
 export function countSolutions(board: Board, limit = 2): number {
     let n = 0;
-    search([...board], () => ++n >= limit, false);
+    search([...board], () => ++n >= limit, null);
     return n;
 }
 
-export function generateSolved(): Board {
+export function generateSolved(rand: Rand = Math.random): Board {
     let result: Board = new Array(81).fill(0);
-    search(result, (b) => { result = [...b]; return true; }, true);
+    search(result, (b) => { result = [...b]; return true; }, rand);
     return result;
 }
 
@@ -107,10 +110,10 @@ export interface Puzzle {
     solution: Board;
 }
 
-function carve(solution: Board, target: number): Board {
+function carve(solution: Board, target: number, rand: Rand): Board {
     const puzzle = [...solution];
     let clues = 81;
-    for (const idx of shuffle(Array.from({ length: 81 }, (_, i) => i))) {
+    for (const idx of shuffle(Array.from({ length: 81 }, (_, i) => i), rand)) {
         if (clues <= target) break;
         const saved = puzzle[idx];
         puzzle[idx] = 0;
@@ -123,15 +126,16 @@ function carve(solution: Board, target: number): Board {
 /**
  * Generates a puzzle with a unique solution. Cells are removed while uniqueness holds;
  * for the hardest levels the random order sometimes stalls above the target, so a few
- * attempts are made and the sparsest puzzle is kept.
+ * attempts are made and the sparsest puzzle is kept. With a seeded `rand`, the same
+ * seed always yields the same puzzle.
  */
-export function generatePuzzle(level: Level = 5): Puzzle {
+export function generatePuzzle(level: Level = 5, rand: Rand = Math.random): Puzzle {
     const target = CLUES[level];
     let best: Puzzle | null = null;
     let bestClues = 82;
     for (let attempt = 0; attempt < 30 && bestClues > target; attempt++) {
-        const solution = generateSolved();
-        const puzzle = carve(solution, target);
+        const solution = generateSolved(rand);
+        const puzzle = carve(solution, target, rand);
         const clues = puzzle.filter(Boolean).length;
         if (clues < bestClues) { best = { puzzle, solution }; bestClues = clues; }
     }
