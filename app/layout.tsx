@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Orbitron, Rajdhani } from 'next/font/google';
 import Providers from '../components/Providers';
+import SiteFooter from '../components/SiteFooter';
 import { themeCss } from '../lib/uiTheme';
 import './globals.css';
 
@@ -26,7 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </head>
             <body>
                 <a className="skip-link" href="#main">Skip to main content</a>
-                <Providers>{children}</Providers>
+                <Providers>
+                    {children}
+                    <SiteFooter />
+                </Providers>
             </body>
         </html>
     );
