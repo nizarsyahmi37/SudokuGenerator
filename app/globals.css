@@ -240,6 +240,8 @@ textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); bord
 .code b { color: var(--text); letter-spacing: 0.06em; }
 .tools.two { grid-template-columns: repeat(2, 1fr); margin-bottom: 4px; }
 .tools.four { grid-template-columns: repeat(4, 1fr); }
+.tools button { min-width: 0; }
+@media (max-width: 480px) { .tools.four { grid-template-columns: repeat(2, 1fr); } }
 .tools button[aria-pressed="true"], .tools button.on { background: var(--a1); color: var(--on-a1); border-color: var(--a1); }
 details > summary.panel-title { cursor: pointer; margin: 0; }
 table.stats { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
