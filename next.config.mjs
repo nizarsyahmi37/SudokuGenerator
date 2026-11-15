@@ -40,6 +40,8 @@ const nextConfig = {
     async headers() {
         return [
             { source: '/:path*', headers: securityHeaders },
+            // The service worker file must never be cached for long, or a fixed worker could not reach people.
+            { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache, max-age=0' }, { key: 'Service-Worker-Allowed', value: '/' }] },
             { source: '/fonts/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
         ];
     },

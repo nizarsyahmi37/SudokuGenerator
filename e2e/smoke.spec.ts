@@ -79,3 +79,16 @@ test('no console errors or CSP violations while loading and playing', async ({ p
     await page.getByRole('tab', { name: 'Make a book' }).click();
     expect(problems).toEqual([]);
 });
+
+test('the app opens again without a connection after a first visit', async ({ page, context }) => {
+    await page.goto('/');
+    await expect(page.getByRole('gridcell')).toHaveCount(81);
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    // The worker saves what the page loaded a moment after it settles.
+    await expect.poll(async () => page.evaluate(async () => (await caches.keys()).length && (await (await caches.open('sudoku-offline-v1')).keys()).length), { timeout: 20_000 }).toBeGreaterThan(5);
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.getByRole('gridcell')).toHaveCount(81);
+    await expect(page.getByRole('heading', { name: 'SUDOKU' })).toBeVisible();
+    await context.setOffline(false);
+});

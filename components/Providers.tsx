@@ -6,6 +6,7 @@ import ThreeBackground from './ThreeBackground';
 import ConsentProvider from './ConsentProvider';
 import ConsentBanner from './ConsentBanner';
 import AdScript from './AdScript';
+import OfflineSupport from './OfflineSupport';
 
 function Backdrop() {
     const { effects } = useTheme();
@@ -20,6 +21,7 @@ export default function Providers({ children }: { children: ReactNode }) {
                 <ConsentBanner />
                 {children}
                 <AdScript />
+                <OfflineSupport />
             </ConsentProvider>
         </ThemeProvider>
     );

@@ -43,6 +43,7 @@ export default function PrivacyPage() {
                     {ADS_ENABLED && <tr><th scope="row">sudoku-consent</th><td>Remembers your choice about ads, so we do not ask again on every visit.</td><td>Until you clear site data or change it</td></tr>}
                 </tbody>
             </table>
+            <p>In supported browsers the site also keeps a copy of its own pages, scripts and fonts in your browser&apos;s cache storage, so it can open without an internet connection. That copy contains no information about you. You can remove it by clearing site data.</p>
             <p>These items only store your preferences, so they do not need your consent. You can delete them at any time in your browser settings.</p>
 
             <h2>Advertising</h2>
