@@ -28,6 +28,8 @@ export default function Game() {
     const [selected, setSelected] = useState<number | null>(null);
     const [message, setMessage] = useState<{ text: string; kind: 'ok' | 'err' | '' }>({ text: '', kind: '' });
     const [seconds, setSeconds] = useState(0);
+    // The clock only starts once the player first touches the board, not when a puzzle is loaded.
+    const [started, setStarted] = useState(false);
     const [format, setFormat] = useState<ExportFormat>('pdf');
     const [exporting, setExporting] = useState(false);
     const [plainExport, setPlainExport] = useState(false);
@@ -56,6 +58,7 @@ export default function Game() {
         setBoard([...g.puzzle]);
         setSelected(null);
         setSeconds(0);
+        setStarted(false);
         setMessage({ text: `New level ${d} puzzle ready.`, kind: '' });
     }, []);
 
@@ -73,10 +76,10 @@ export default function Game() {
     const solved = !!game && !revealed && board.length === 81 && board.every((v, i) => v === game.solution[i]);
 
     useEffect(() => {
-        if (!game || solved || revealed) return;
+        if (!game || !started || solved || revealed) return;
         const id = setInterval(() => setSeconds((s) => s + 1), 1000);
         return () => clearInterval(id);
-    }, [game, solved, revealed]);
+    }, [game, started, solved, revealed]);
     const clock = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
     // Auto-check as soon as every cell is filled (unless the solution was revealed with Solve).
@@ -88,7 +91,7 @@ export default function Game() {
         if (solved) fx.current?.fireworks(fxcRef.current.fx);
     }, [solved]);
 
-    const focusCell = useCallback((i: number) => { setSelected(i); cellRefs.current[i]?.focus(); }, []);
+    const focusCell = useCallback((i: number) => { setStarted(true); setSelected(i); cellRefs.current[i]?.focus(); }, []);
 
     const setCell = useCallback((value: number) => {
         if (selected === null || !game || game.puzzle[selected]) return;
@@ -232,7 +235,7 @@ export default function Game() {
                                                 aria-selected={selected === i} className={cls}
                                                 style={{ ['--d' as string]: `${(c + r) * 18}ms` }}
                                                 aria-label={`Row ${r + 1}, column ${c + 1}, ${v ? v : 'empty'}${given ? ', clue' : ''}${bad ? ', conflicts with another number' : ''}`}
-                                                onClick={() => focusCell(i)} onFocus={() => setSelected(i)}>
+                                                onClick={() => focusCell(i)} onFocus={() => { setStarted(true); setSelected(i); }}>
                                                 {v ? <span key={v} className={given ? undefined : 'pop'}>{v}</span> : null}
                                             </div>
                                         );
