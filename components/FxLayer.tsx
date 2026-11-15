@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import type Phaser from 'phaser';
 
 export interface FxHandle {
     /** Particle burst at viewport coordinates. */
@@ -12,13 +13,13 @@ export interface FxHandle {
 /** Transparent Phaser canvas laid over the page, used only for particle effects. */
 const FxLayer = forwardRef<FxHandle>(function FxLayer(_, ref) {
     const host = useRef<HTMLDivElement>(null);
-    const scene = useRef<any>(null);
+    const scene = useRef<Phaser.Scene | null>(null);
     const queue = useRef<Array<() => void>>([]);
 
     useImperativeHandle(ref, () => ({
         burst: (x, y, color, count = 18) => {
             const run = () => {
-                const s = scene.current;
+                const s = scene.current as Phaser.Scene;
                 const e = s.add.particles(x, y, 'spark', {
                     speed: { min: 60, max: 260 }, angle: { min: 0, max: 360 }, scale: { start: 1, end: 0 },
                     alpha: { start: 1, end: 0 }, lifespan: { min: 350, max: 750 }, gravityY: 220,
@@ -27,11 +28,11 @@ const FxLayer = forwardRef<FxHandle>(function FxLayer(_, ref) {
                 e.explode(count);
                 s.time.delayedCall(900, () => e.destroy());
             };
-            scene.current ? run() : queue.current.push(run);
+            if (scene.current) run(); else queue.current.push(run);
         },
         fireworks: (palette) => {
             const run = () => {
-                const s = scene.current;
+                const s = scene.current as Phaser.Scene;
                 const colors = palette && palette.length ? palette : [0x22d3ee, 0xf472b6, 0xa78bfa, 0xfacc15, 0x34d399];
                 for (let i = 0; i < 14; i++) {
                     s.time.delayedCall(i * 260, () => {
@@ -47,12 +48,12 @@ const FxLayer = forwardRef<FxHandle>(function FxLayer(_, ref) {
                     });
                 }
             };
-            scene.current ? run() : queue.current.push(run);
+            if (scene.current) run(); else queue.current.push(run);
         },
     }));
 
     useEffect(() => {
-        let game: any;
+        let game: Phaser.Game | undefined;
         let disposed = false;
         (async () => {
             const Phaser = (await import('phaser')).default;

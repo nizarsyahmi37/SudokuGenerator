@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import type * as THREE_NS from 'three';
 import { getTheme } from '../lib/themes';
 import { useTheme } from './ThemeProvider';
 
@@ -62,10 +63,11 @@ export default function ThreeBackground() {
                 cancelAnimationFrame(raf);
                 window.removeEventListener('pointermove', onMove);
                 window.removeEventListener('resize', onResize);
-                scene.traverse((o: any) => {
-                    o.geometry?.dispose?.();
-                    const m = o.material;
-                    (Array.isArray(m) ? m : m ? [m] : []).forEach((x: any) => { x.map?.dispose?.(); x.dispose?.(); });
+                scene.traverse((o) => {
+                    const obj = o as THREE_NS.Object3D & { geometry?: THREE_NS.BufferGeometry; material?: THREE_NS.Material | THREE_NS.Material[] };
+                    obj.geometry?.dispose();
+                    const m = obj.material;
+                    (Array.isArray(m) ? m : m ? [m] : []).forEach((x) => { (x as THREE_NS.MeshBasicMaterial).map?.dispose(); x.dispose(); });
                 });
                 renderer.dispose();
                 renderer.domElement.remove();

@@ -34,7 +34,7 @@ export default function Game() {
 
     const { fx: fxc, effects, mode, theme } = useTheme();
     const fxcRef = useRef(fxc);
-    fxcRef.current = fxc;
+    useEffect(() => { fxcRef.current = fxc; }, [fxc]);
     const fx = useRef<FxHandle>(null);
     const cellRefs = useRef<Array<HTMLDivElement | null>>([]);
     const gridRef = useRef<HTMLDivElement>(null);
@@ -60,6 +60,7 @@ export default function Game() {
     }, []);
 
     // Generate on the client only (random output would break SSR hydration).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-side initialisation
     useEffect(() => { newGame(5); }, [newGame]);
 
     const conflicts = useMemo(() => findConflicts(board), [board]);
@@ -79,11 +80,13 @@ export default function Game() {
     const clock = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
     // Auto-check as soon as every cell is filled (unless the solution was revealed with Solve).
+    const full = !!game && !revealed && board.length === 81 && board.every(Boolean);
+    const autoMessage: typeof message | null = full
+        ? (solved ? { text: 'Solved! Well done.', kind: 'ok' } : { text: 'The board is full, but something is wrong.', kind: 'err' })
+        : null;
     useEffect(() => {
-        if (!game || revealed || board.length !== 81 || board.some((v) => !v)) return;
-        if (board.every((v, i) => v === game.solution[i])) { setMessage({ text: 'Solved! Well done.', kind: 'ok' }); fx.current?.fireworks(fxcRef.current.fx); }
-        else setMessage({ text: 'The board is full, but something is wrong.', kind: 'err' });
-    }, [board, game, revealed]);
+        if (solved) fx.current?.fireworks(fxcRef.current.fx);
+    }, [solved]);
 
     const focusCell = useCallback((i: number) => { setSelected(i); cellRefs.current[i]?.focus(); }, []);
 
@@ -237,8 +240,8 @@ export default function Game() {
                                 </div>
                             ))}
                         </div>
-                        <div className={`status ${message.kind}`} role="status" aria-live="polite">
-                            {message.kind === 'ok' && <span aria-hidden="true">✓ </span>}{message.kind === 'err' && <span aria-hidden="true">✕ </span>}{message.text}
+                        <div className={`status ${(autoMessage ?? message).kind}`} role="status" aria-live="polite">
+                            {(autoMessage ?? message).kind === 'ok' && <span aria-hidden="true">✓ </span>}{(autoMessage ?? message).kind === 'err' && <span aria-hidden="true">✕ </span>}{(autoMessage ?? message).text}
                         </div>
                     </section>
 

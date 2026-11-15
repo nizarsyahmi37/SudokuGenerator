@@ -34,6 +34,7 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
 
     // Restore saved choices after hydration. The inline boot script already applied them to <html>.
     useEffect(() => {
+        /* eslint-disable react-hooks/set-state-in-effect -- reading localStorage is only possible on the client, after hydration */
         const t = read(K.theme); if (t && THEME_KEYS.includes(t)) setThemeState(t);
         const m = read(K.mode); if (m === 'light' || m === 'dark' || m === 'system') setModePrefState(m);
         const e = read(K.effects);
@@ -41,6 +42,7 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
         setEffectsState(e ? e === 'on' : !reduce);
         const mq = window.matchMedia('(prefers-color-scheme: dark)');
         setSystemDark(mq.matches);
+        /* eslint-enable react-hooks/set-state-in-effect */
         const on = (ev: MediaQueryListEvent) => setSystemDark(ev.matches);
         mq.addEventListener('change', on);
         return () => mq.removeEventListener('change', on);
