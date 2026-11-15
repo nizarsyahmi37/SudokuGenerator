@@ -35,6 +35,7 @@ const securityHeaders = [
 const nextConfig = {
     poweredByHeader: false,
     reactStrictMode: true,
+    // Only the Playwright test servers set this, so two builds can sit side by side. Vercel uses the default.
     distDir: process.env.NEXT_DIST_DIR || '.next',
     async headers() {
         return [
