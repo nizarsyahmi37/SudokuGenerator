@@ -20,7 +20,8 @@
         "start": "next start",
         "lint": "eslint .",
         "typecheck": "tsc --noEmit",
-        "test": "vitest run"
+        "test": "vitest run",
+        "audit:contrast": "node scripts/contrast-audit.mjs"
     },
     "devDependencies": {
         "@types/node": "^26.6.6",
