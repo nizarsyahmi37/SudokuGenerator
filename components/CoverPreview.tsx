@@ -24,6 +24,7 @@ export default function CoverPreview({ cfg }: { cfg: BookConfig }) {
     const key = useMemo(() => JSON.stringify({
         t: cfg.title, a: cfg.author, th: cfg.theme, m: cfg.mode, w: cfg.pageWidth, h: cfg.pageHeight, p: cfg.print, ink: cfg.inkSaver, bc: cfg.barcodeArea, back: cfg.backCover,
         total: Object.values(cfg.counts).reduce((n, v) => n + v, 0), per: cfg.puzzlesPerPage, lp: cfg.largePrint, cr: cfg.copyright.enabled, np: cfg.extras.notesPages, seed: cfg.seed,
+        font: cfg.customFont ? { n: fingerprint(cfg.customFont.bytes), name: cfg.customFont.name } : null,
         c: { ...cfg.cover, image: cfg.cover.image ? { n: fingerprint(cfg.cover.image.bytes), alt: cfg.cover.image.alt } : null },
     }), [cfg]);
 

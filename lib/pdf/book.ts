@@ -114,6 +114,9 @@ function drawFrontCover(k: Kit, t: Theme, cfg: BookConfig, o: FrontCoverArgs) {
     });
 }
 
+/** The fonts plus the author's own font, when there is one, registered for alphabets nothing else covers. */
+const withCustomFont = (fonts: FontSet, cfg: BookConfig): FontSet => (cfg.customFont ? { ...fonts, extra: { ...(fonts.extra ?? {}), custom: cfg.customFont.bytes } } : fonts);
+
 /**
  * The puzzle for one slot of a book. No two puzzles in a book are the same: a repeat (very rare) is replaced from the
  * next seeded stream, so the book stays repeatable. Different books may still share a puzzle by chance, which is harmless.
@@ -129,7 +132,8 @@ export function uniquePuzzle(level: Level, seed: string, n: number, seen: Set<st
  * Builds the whole book. `yieldToUi` is only for the main-thread fallback: it is awaited between puzzles
  * and pages so the browser can paint and respond while a large book is being made.
  */
-export async function buildBook(cfg: BookConfig, fonts: FontSet, onProgress?: Progress, yieldToUi?: () => Promise<void>): Promise<BookResult> {
+export async function buildBook(cfg: BookConfig, baseFonts: FontSet, onProgress?: Progress, yieldToUi?: () => Promise<void>): Promise<BookResult> {
+    const fonts = withCustomFont(baseFonts, cfg);
     const ink = !!cfg.print && cfg.inkSaver;
     const t = ink ? INK_SAVER : getTheme(cfg.theme, cfg.mode);
     const spot = spotOf(t);
@@ -550,7 +554,8 @@ async function buildCover({ cfg, t, fonts, pages, spineMm, bleed, slug, total, s
  * Just the cover, for the live preview while a book is being set up. A digital book gets its front cover; a print book
  * gets the whole wrap (back, spine and front) at the spine width its page count will need. No puzzles are generated.
  */
-export async function buildCoverPreview(cfg: BookConfig, fonts: FontSet): Promise<Uint8Array> {
+export async function buildCoverPreview(cfg: BookConfig, baseFonts: FontSet): Promise<Uint8Array> {
+    const fonts = withCustomFont(baseFonts, cfg);
     const ink = !!cfg.print && cfg.inkSaver;
     const t = ink ? INK_SAVER : getTheme(cfg.theme, cfg.mode);
     const ct = ink ? t : coverTheme(t, cfg.cover);

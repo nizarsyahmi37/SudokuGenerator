@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { buildBook, buildCoverPreview, coverTheme, uniquePuzzle } from '../lib/pdf/book';
 import { contrast } from '../lib/palette';
 import { getTheme } from '../lib/themes';
-import { DEFAULT_COVER, DEFAULT_EXTRAS, planPages } from '../lib/bookConfig';
+import { DEFAULT_COVER, DEFAULT_EXTRAS, looksLikeFont, planPages } from '../lib/bookConfig';
 import { isRtlText, scriptsIn, splitRuns, unsupportedIn } from '../lib/pdf/scripts';
 import { puzzleTitles, TITLE_COUNT } from '../lib/pdf/titles';
 import { buildBookInWorker } from '../lib/bookClient';
@@ -228,6 +230,21 @@ describe('book generator', () => {
         expect(isRtlText('Sudoku سودوكو')).toBe(false);
         expect(isRtlText('123 עברית')).toBe(true); // digits and spaces do not decide the direction
         expect(splitRuns('كتاب Sudoku').map((x) => x.script)).toEqual(['arabic', 'latin']);
+    });
+
+    it('uses the author\'s own font for alphabets nothing else covers', async () => {
+        const bytes = new Uint8Array(readFileSync(join(process.cwd(), 'public/fonts/noto-sans-thai-thai-400-normal.woff')));
+        expect(looksLikeFont(bytes)).toBe(true);
+        expect(looksLikeFont(new Uint8Array(40))).toBe(false);
+        expect(looksLikeFont(Buffer.from('ttcf'.padEnd(40, 'x')))).toBe(false); // collections are not supported
+        expect(splitRuns('数独', true).map((r) => r.script)).toEqual(['custom']);
+        const r = await buildBook(smallBook({ title: '数独 Sudoku', customFont: { name: 'x.woff', bytes } }), fonts);
+        const first = (await pageTexts(r.interior))[0].replace(/\s+/g, '');
+        // The stand-in font has no Chinese letters, so only the route is checked: the text is no longer swapped for question marks.
+        expect(first).not.toContain('?');
+        expect(first).toContain('Sudoku');
+        const without = (await pageTexts((await buildBook(smallBook({ title: '数独 Sudoku' }), fonts)).interior))[0];
+        expect(without).toContain('??');
     });
 
     it('never prints empty boxes: uncovered alphabets become a question mark and are reported', () => {

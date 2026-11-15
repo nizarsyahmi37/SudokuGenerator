@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { LEVELS, LEVEL_NAMES, LEVEL_TECHNIQUES, type Level } from '../lib/sudoku';
-import { DEFAULT_BLEED_MM, DEFAULT_COVER, MAX_NOTES_PAGES, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type CoverImage, type NotesStyle, type Paper } from '../lib/bookConfig';
+import { DEFAULT_BLEED_MM, DEFAULT_COVER, MAX_FONT_BYTES, MAX_NOTES_PAGES, looksLikeFont, PAGE_SIZES, POD_TRIMS, planPages, spineWidthMm, totalPuzzles, levelColor, type BookConfig, type BookResult, type CoverImage, type NotesStyle, type Paper } from '../lib/bookConfig';
 import { buildBookInWorker, type BookJob } from '../lib/bookClient';
 import { downloadBlob, pdfBlob } from '../lib/download';
 import { cleanSeed, decodeBookCode, encodeBookCode } from '../lib/bookCode';
@@ -69,6 +69,8 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
     const [coverImage, setCoverImage] = useState<CoverImage | null>(null);
     const [imageUrl, setImageUrl] = useState('');
     const [imageError, setImageError] = useState('');
+    const [customFont, setCustomFont] = useState<{ name: string; bytes: Uint8Array } | null>(null);
+    const [fontError, setFontError] = useState('');
     const [progress, setProgress] = useState({ text: '', pct: 0, error: false });
     const [busy, setBusy] = useState(false);
     const [notice, setNotice] = useState('');
@@ -104,6 +106,15 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
         setImageUrl(URL.createObjectURL(file));
         setCoverImage({ bytes, mime: file.type, alt: coverImage?.alt ?? '' });
     };
+    /** Reads a font for alphabets the built-in fonts do not cover. It stays on this device and is embedded only if the text needs it. */
+    const pickFont = async (file: File | undefined) => {
+        setFontError('');
+        if (!file) return;
+        if (file.size > MAX_FONT_BYTES) { setFontError('That font file is larger than 20 MB. Please choose a smaller one.'); return; }
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        if (!looksLikeFont(bytes)) { setFontError('Please choose a TTF, OTF or WOFF font file. Font collections (TTC) and WOFF2 files are not supported.'); return; }
+        setCustomFont({ name: file.name, bytes });
+    };
     const removeImage = () => { if (imageUrl) URL.revokeObjectURL(imageUrl); setImageUrl(''); setCoverImage(null); };
     const [w, h] = printing
         ? (podSize === 'Custom' ? [custom.w, custom.h] : POD_TRIMS[podSize])
@@ -132,10 +143,10 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
         copyright: { enabled: copyrightOn, holder, year, isbn },
         inkSaver, barcodeArea,
         cover: { ...DEFAULT_COVER, subtitle: coverSubtitle, bgColor: customColours ? coverBg : '', accentColor: customColours ? coverAccent : '', showGrid, image: coverImage },
-        backCover, extras: { puzzleTitles, notesPages, notesStyle },
-    }), [puzzleTitles, notesPages, notesStyle, counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, inkSaver, barcodeArea, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
+        backCover, extras: { puzzleTitles, notesPages, notesStyle }, customFont,
+    }), [customFont, puzzleTitles, notesPages, notesStyle, counts, w, h, perPage, title, author, theme, paper, seedNorm, largePrint, printing, bleedMm, bleedEdges, cropMarks, paperStock, inkSaver, barcodeArea, copyrightOn, holder, year, isbn, backCover, coverSubtitle, customColours, coverBg, coverAccent, showGrid, coverImage]);
     // The picture is left out of the key (it could be megabytes); its size and description stand in for it.
-    const key = JSON.stringify({ ...cfg, cover: { ...cfg.cover, image: coverImage ? { n: coverImage.bytes.length, alt: coverImage.alt } : null } });
+    const key = JSON.stringify({ ...cfg, customFont: customFont ? { n: customFont.bytes.length, name: customFont.name } : null, cover: { ...cfg.cover, image: coverImage ? { n: coverImage.bytes.length, alt: coverImage.alt } : null } });
     const plan = planPages(cfg);
     const spine = printing ? spineWidthMm(plan.pages, paperStock) : 0;
     const canBuild = total > 0 && total <= MAX_TOTAL && validSize && validBleed && !!seedNorm && !busy;
@@ -325,11 +336,22 @@ export default function BookBuilder({ gameTheme, gameMode }: { gameTheme: string
                         <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} autoComplete="off" />
                     </label>
                 </div>
-                {unsupported.length > 0 && (
+                {unsupported.length > 0 && !customFont && (
                     <p className="status err" role="status">
-                        The PDF fonts do not cover {unsupported.join(', ')} yet, so those characters will print as “?”. Latin, Latin Extended, Vietnamese, Cyrillic, Greek, Arabic, Hebrew, Devanagari and Thai are supported.
+                        The built-in fonts do not cover {unsupported.join(', ')}, so those characters will print as “?”. Add a font file below that has them. Built in: Latin, Latin Extended, Vietnamese, Cyrillic, Greek, Arabic, Hebrew, Devanagari and Thai.
                     </p>
                 )}
+                <div className="custom-font">
+                    <label className="field">Font for other alphabets (optional, TTF, OTF or WOFF, up to 20 MB)
+                        <input type="file" accept=".ttf,.otf,.woff,font/ttf,font/otf,font/woff" onChange={(e) => { void pickFont(e.target.files?.[0]); e.target.value = ''; }} aria-describedby={fontError ? `${uid}-font-err` : undefined} />
+                    </label>
+                    {fontError && <p id={`${uid}-font-err`} className="status err" role="alert">{fontError}</p>}
+                    {customFont && (
+                        <p className="hint" role="status">
+                            Characters outside the built-in alphabets use {customFont.name}, and the font is embedded in the PDF only if it is needed. Check that its licence allows embedding. <button type="button" className="link-button" onClick={() => setCustomFont(null)}>Remove font</button>
+                        </p>
+                    )}
+                </div>
                 <fieldset className="plain">
                     <legend className="field-label">Paper</legend>
                     <div className="chips">

@@ -165,3 +165,15 @@ test('a book with an Arabic title and Hindi author builds, with no warning about
     await expect(page.getByText(/do not cover/)).toHaveCount(0);
     await build(page);
 });
+
+test('a Chinese title asks for a font file and then builds with it', async ({ page }) => {
+    await setCounts(page, 1);
+    await page.getByLabel('Book title').fill('数独 Sudoku');
+    await expect(page.getByText(/do not cover Chinese, Japanese or Korean/)).toBeVisible();
+    await page.getByLabel(/^Font for other alphabets/).setInputFiles('public/fonts/noto-sans-thai-thai-400-normal.woff');
+    await expect(page.getByText(/use noto-sans-thai-thai-400-normal.woff/)).toBeVisible();
+    await expect(page.getByText(/do not cover/)).toHaveCount(0);
+    await build(page);
+    await page.getByLabel(/^Font for other alphabets/).setInputFiles({ name: 'x.txt', mimeType: 'text/plain', buffer: Buffer.from('this is not a font file at all') });
+    await expect(page.getByRole('alert').filter({ hasText: 'TTF, OTF or WOFF' })).toBeVisible();
+});

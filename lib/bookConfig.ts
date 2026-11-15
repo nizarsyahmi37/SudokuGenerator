@@ -78,6 +78,14 @@ export interface Extras {
 }
 
 export const MAX_NOTES_PAGES = 20;
+export const MAX_FONT_BYTES = 20 * 1024 * 1024;
+
+/** True when the bytes start like a TrueType, OpenType or WOFF font (collections and WOFF2 are not accepted). */
+export function looksLikeFont(b: Uint8Array): boolean {
+    if (b.length < 12) return false;
+    const tag = String.fromCharCode(b[0], b[1], b[2], b[3]);
+    return tag === 'OTTO' || tag === 'wOFF' || tag === 'true' || (b[0] === 0 && b[1] === 1 && b[2] === 0 && b[3] === 0);
+}
 export const DEFAULT_EXTRAS: Extras = { puzzleTitles: false, notesPages: 0, notesStyle: 'lined' };
 
 export interface BookConfig {
@@ -105,6 +113,8 @@ export interface BookConfig {
     /** Short text for the back cover (print) */
     backCover: string;
     extras: Extras;
+    /** The author's own font for alphabets the bundled fonts do not cover (Chinese, Japanese, Korean...). Embedded only if used. */
+    customFont?: { name: string; bytes: Uint8Array } | null;
 }
 
 export interface BookResult {
