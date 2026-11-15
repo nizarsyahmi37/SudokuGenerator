@@ -3,6 +3,9 @@
 import type { ReactNode } from 'react';
 import ThemeProvider, { useTheme } from './ThemeProvider';
 import ThreeBackground from './ThreeBackground';
+import ConsentProvider from './ConsentProvider';
+import ConsentBanner from './ConsentBanner';
+import AdScript from './AdScript';
 
 function Backdrop() {
     const { effects } = useTheme();
@@ -12,8 +15,12 @@ function Backdrop() {
 export default function Providers({ children }: { children: ReactNode }) {
     return (
         <ThemeProvider>
-            <Backdrop />
-            {children}
+            <ConsentProvider>
+                <Backdrop />
+                <ConsentBanner />
+                {children}
+                <AdScript />
+            </ConsentProvider>
         </ThemeProvider>
     );
 }

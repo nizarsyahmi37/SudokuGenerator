@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useConsent } from './ConsentProvider';
 
 type Placement = 'play' | 'book';
 
@@ -13,19 +14,20 @@ const SLOT: Record<Placement, string | undefined> = {
 
 /**
  * A Google AdSense slot that only takes up space when an ad is really being shown.
- * - not configured            -> renders nothing
+ * - not configured, or the visitor has not agreed to ads -> renders nothing
  * - requested, not yet filled -> mounted but collapsed to zero height (AdSense needs it in the DOM)
  * - filled                    -> becomes visible, labelled "Advertisement"
  * - unfilled / blocked        -> removed, so it never leaves an empty box
  */
 export default function AdSlot({ placement }: { placement: Placement }) {
     const slot = SLOT[placement];
+    const { adsAllowed } = useConsent();
     const [state, setState] = useState<'pending' | 'filled' | 'unfilled'>('pending');
     const ins = useRef<HTMLModElement>(null);
 
     useEffect(() => {
         const el = ins.current;
-        if (!CLIENT || !slot || !el) return;
+        if (!CLIENT || !slot || !adsAllowed || !el) return;
         const read = () => {
             const s = el.getAttribute('data-ad-status');
             if (s === 'filled') setState('filled');
@@ -42,9 +44,9 @@ export default function AdSlot({ placement }: { placement: Placement }) {
         } catch { /* the ad script is blocked or failed: the slot just stays collapsed */ }
         read();
         return () => mo.disconnect();
-    }, [slot]);
+    }, [slot, adsAllowed]);
 
-    if (!CLIENT || !slot || state === 'unfilled') return null;
+    if (!CLIENT || !slot || !adsAllowed || state === 'unfilled') return null;
 
     return (
         <aside className="ad" data-state={state} aria-label="Advertisement">
